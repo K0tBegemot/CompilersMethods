@@ -1,0 +1,16 @@
+import runtime;
+import string;
+
+
+printSymbol(str : string) -> void{
+    println(str);
+}
+
+main()
+{
+    a : [int] = [1, 2, 3, 4];
+    retCode : [string] = map(a, i2s);
+    separator : string = " ";
+    retCode2 : string = strGlue(retCode, separator);
+    printSymbol(retCode2);
+}
