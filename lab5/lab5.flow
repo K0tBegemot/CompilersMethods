@@ -1,0 +1,121 @@
+import runtime;
+import string;
+import ds/array;
+import ds/tree;
+import ds/tuples;
+import lingo/pegcode/driver;
+
+Expr ::= Add, Sub, Mul, Div, Int, Parentheses;
+Add : (e1 : Expr, e2 : Expr);
+Sub : (e1 : Expr, e2 : Expr);
+Mul : (e1 : Expr, e2 : Expr);
+Div : (e1 : Expr, e2 : Expr);
+Int : (e1 : int);
+Parentheses : (e1 : Expr);
+
+SubFO ::= SubAdd, SubSub;
+SubSO ::= SubMul, SubDiv;
+SubAdd : (e1 : Expr);
+SubSub : (e1 : Expr);
+SubMul : (e1 : Expr);
+SubDiv : (e1 : Expr);
+
+lingoGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+FOOp(array : [flow]){
+    fold(array[1], array[0], \number, subexpression -> {
+        switch(subexpression : SubFO){
+            SubAdd(e1):Add(number, e1);
+            SubSub(e1):Sub(number, e1);
+        }
+    });
+}
+
+SOOp(array : [flow]){
+    fold(array[1], array[0], \number, subexpression -> {
+        switch(subexpression : SubSO){
+            SubMul(e1):Mul(number, e1);
+            SubDiv(e1):Div(number, e1);
+        }
+    });
+}
+
+lingoGrammar(){
+    onlyOnce(lingoGrammarOp, \ -> {
+        compilePegGrammar("#include example.lingo");
+    })
+}
+
+printASTRecursive(ASTTree : Expr) -> string{
+    text : string = "";
+    switch(ASTTree){
+        Add(e1, e2) : {
+            text + "Add[ " + printASTRecursive(e1) + " , " + printASTRecursive(e2) + " ]";
+        };
+        Sub(e1, e2) : {
+            text + "Sub[ " + printASTRecursive(e1) + " , " + printASTRecursive(e2) + " ]";
+        };
+        Mul(e1, e2) : {
+            text + "Mul[ " + printASTRecursive(e1) + " , " + printASTRecursive(e2) + " ]";
+        };
+        Div(e1, e2) : {
+            text + "Div[ " + printASTRecursive(e1) + " , " + printASTRecursive(e2) + " ]";
+        };
+        Int(e1) : {
+            text + "Int[ " + i2s(e1) + " ]";
+        };
+        Parentheses(e1) : {
+            text + printASTRecursive(e1);
+        }
+    }
+}
+
+printAST(ASTTree : Expr) -> void{
+    text : string = printASTRecursive(ASTTree);
+    println(text);
+}
+
+createStringFromASTRecursive(ASTTree){
+    text : string = "";
+    switch(ASTTree){
+        Add(e1, e2) : {
+            text + createStringFromASTRecursive(e1) + "+" + createStringFromASTRecursive(e2);
+        };
+        Sub(e1, e2) : {
+            text + createStringFromASTRecursive(e1) + "-" + createStringFromASTRecursive(e2);
+        };
+        Mul(e1, e2) : {
+            text + createStringFromASTRecursive(e1) + "*" + createStringFromASTRecursive(e2);
+        };
+        Div(e1, e2) : {
+            text + createStringFromASTRecursive(e1) + "/" + createStringFromASTRecursive(e2);
+        };
+        Int(e1) : {
+            text + i2s(e1);
+        };
+        Parentheses(e1) : {
+            text + "(" + createStringFromASTRecursive(e1) + ")";
+        }
+    }
+}
+
+calculateExpression(ASTTree) -> int{
+    
+}
+
+createStringFromAST(ASTTree : Expr){
+    text : string = createStringFromASTRecursive(ASTTree);
+    text;
+}
+
+main(){
+    specialPegActions = {
+        t1 = setTree(defaultPegActions.t, "FOOp", FOOp);
+        t2 = setTree(t1, "SOOp", SOOp);
+        SemanticActions(t2);
+    }
+    result : Expr = parsic(lingoGrammar(), "(1-(2))*3", specialPegActions);
+    printAST(result);
+    text: string = createStringFromAST(result);
+    println(text);
+}

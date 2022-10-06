@@ -1,0 +1,10 @@
+expr = ws foexp;
+foexp = soexp:value1 (subAdd | subSub)*:value2 {FOOp(:value1, :value2)};
+subAdd = "+" ws soexp:value1{SubAdd(:value1)};
+subSub = "-" ws soexp:value1{SubSub(:value1)};
+soexp = literal:value1 (subMul | subDiv)*:value2{SOOp(:value1, :value2)};
+subMul = "*" ws literal:value1{SubMul(:value1)};
+subDiv = "/" ws literal:value1{SubDiv(:value1)};
+literal = int:value1 ws {Int(:value1)} | "(" expr:value1 ")" ws {Parentheses(:value1)};
+int = (("-")? ('0'-'9')+)$value1 {s2i($value1)};
+ws = (" " | "\n")*;

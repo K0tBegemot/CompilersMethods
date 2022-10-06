@@ -1,0 +1,66 @@
+expression = foex:value1{:value1};
+foex = int_type:value1 fosubex+:value2{Foexer(:value1, :value2)} | 
+        "(" foex:value1 ")" fosubex*:value2{Foexer(:value1, :value2)} ;
+fosubex = "+" number1:value1{Pluser(:value1)} | "-" number1:value1{Minuser(:value1)};
+soex = int_type:value1 sosubex+:value2{Soexer(:value1, :value2)} | 
+        "(" foex:value1 ")" sosubex*:value2{Soexer(:value1, :value2)};
+sosubex = "*" number2:value1{Muler(:value1)} | "/" number2:value1{Diver(:value1)} | 
+        "*" "(" foex:value1 ")"{Muler(:value1)} | "/" "(" foex:value1 ")"{Diver(:value1)};
+number1 =  int_type $value1{IntType(s2i($value1))};
+number2 = int_type $value1{IntType(s2i($value1))};
+int_type = digit+;
+digit = '0'-'9';
+
+S = sum | mul | sub | div | int ;
+digit = '0' - '9';
+int = digit+ $s { debug(ArInt(s2i($s))) };
+ws = (' ' | '\t' | '\n' | '\r')*;
+sum = "(" ws S:l ws "+" ws S:r ws ")" { debug(ArSum(:l, :r))};
+mul = "(" ws S:l ws "*" ws S:r ws ")" { debug(ArMult(:l, :r))};
+sub = "(" ws S:l ws "-" ws S:r ws ")" { debug(ArSub(:l, :r))};
+div = "(" ws S:l ws "/" ws S:r ws ")" { debug(ArDiv(:l, :r))};
+
+// Expr ::= Add, Sub, Mul, Div, IntType;
+// FoldExpr ::= Pluser, Minuser, Muler, Diver;
+// Add : (e1 : Expr, e2 : Expr);
+// Sub : (e1 : Expr, e2 : Expr);
+// Mul : (e1 : Expr, e2 : Expr);
+// Div : (e1 : Expr, e2 : Expr);
+// IntType : (i : int);
+// Minuser : (e1 : Expr);
+// Pluser : (e1 : Expr);
+// Muler : (e1 : Expr);
+// Diver : (e1 : Expr);
+
+// ArExpr ::= ArInt, ArSum, ArMult, ArSub, ArDiv;
+// ArInt : (i : int);
+// ArSum : (e1 : ArExpr, e2 : ArExpr);
+// ArMult : (e1 : ArExpr, e2 : ArExpr);
+// ArSub : (e1 : ArExpr, e2 : ArExpr);
+// ArDiv : (e1 : ArExpr, e2 : ArExpr);
+
+// Foexer(array: [flow]){
+//     fold(array[1], array[0], \number, subexpression ->{
+//         switch(subexpression : FoldExpr){
+//             Pluser(e1) : Add(number, e1);
+//             Minuser(e1) : Sub(number, e1);
+//             default : Add(number, IntType(0));
+//         }
+//     });
+// }
+
+// Soexer(array : [flow]){
+//     fold(array[1], array[0], \number, subexpression ->{
+//         switch(subexpression : FoldExpr){
+//             Muler(e1) : Add(number, e1);
+//             Diver(e1) : Sub(number, e1);
+//             default : Add(number, IntType(0));
+//         }
+//     });
+// }
+
+// specialPegActions = {
+    //     t1 = setTree(defaultPegActions.t, "Foexer", Foexer);
+    //     t2 = setTree(t1, "Soexer", Soexer);
+    //     SemanticActions(t2);
+    // }
