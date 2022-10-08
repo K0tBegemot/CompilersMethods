@@ -1,0 +1,128 @@
+import runtime;
+import ds/tuples;
+import ASTTree;
+import string;
+
+export{
+    Rational : (numerator : int, denominator : int);
+    addRational(rat1 : Rational, rat2 : Rational) -> Rational;
+    subRational(rat1 : Rational, rat2 : Rational) -> Rational;
+    mulRational(rat1 : Rational, rat2 : Rational) -> Rational;
+    divRational(rat1 : Rational, rat2 : Rational) -> Rational;
+    calculateExpression(ASTTree) -> Rational;
+    printRational(value : Rational) -> void;
+}
+
+//For calculating purpose
+Rational : (numerator : int, denominator : int);
+
+maxRat(pair : Pair) -> Pair{
+    if(pair.first > pair.second){
+        Pair(pair.first, pair.second);
+    }else{
+        Pair(pair.second, pair.first);
+    }
+}
+
+absRat(value : int) -> int{
+    if(value < 0){
+        value * -1;
+    }else{
+        value;
+    }
+}
+
+euclidianGCDAlgRec(denominatorPair : Pair) -> int{
+    if(denominatorPair.second == 0){
+        denominatorPair.first;
+    }else{
+        euclidianGCDAlgRec(Pair(denominatorPair.second, denominatorPair.first % denominatorPair.second));
+    }
+}
+
+euclidianGCDAlg(denominatorPair : Pair) -> int{
+    pair : Pair = maxRat(denominatorPair);
+    gcb : int = euclidianGCDAlgRec(pair);
+    gcb;
+}
+
+rightRational(value : Rational) -> Rational{
+    if(value.denominator < 0){
+        Rational(value.numerator * -1, value.denominator * -1);
+    }else{
+        value;
+    }
+}
+
+addRational(rat1 : Rational, rat2 : Rational) -> Rational{
+    if(rat1.denominator == rat2.denominator){
+        Rational(rat1.numerator + rat2.numerator, rat1.denominator);
+    }else{
+        rat1Right : Rational = rightRational(rat1);
+        rat2Right : Rational = rightRational(rat2);
+        gcb : int = euclidianGCDAlg(Pair(rat1Right.denominator, rat2Right.denominator));
+        lcd : int = absRat(rat1Right.denominator) * (absRat(rat2Right.denominator) / gcb);
+        Rational(rat1Right.numerator * (lcd / rat1Right.denominator) + rat2Right.numerator * (lcd / rat2Right.denominator), lcd);
+    }
+}
+
+subRational(rat1 : Rational, rat2 : Rational) -> Rational{
+    if(rat1.denominator == rat2.denominator){
+        Rational(rat1.numerator - rat2.numerator, rat1.denominator);
+    }else{
+        rat1Right = rightRational(rat1);
+        rat2Right = rightRational(rat2);
+        gcb : int = euclidianGCDAlg(Pair(rat1Right.denominator, rat2Right.denominator));
+        lcd : int = absRat(rat1Right.denominator) * (absRat(rat1Right.denominator) / gcb);
+        Rational(rat1Right.numerator * (lcd / rat1Right.denominator) - rat2Right.numerator * (lcd / rat2Right.denominator), lcd);
+    }
+}
+
+mulRational(rat1 : Rational, rat2 : Rational) -> Rational{
+    Rational(rat1.numerator * rat2.numerator, rat1.denominator * rat2.denominator);
+}
+
+divRational(rat1 : Rational, rat2 : Rational) -> Rational{
+    if(rat1.denominator == 1){
+        if(rat2.denominator == 1){
+            Rational(rat1.numerator, rat2.numerator);
+        }else{
+            Rational(rat1.numerator * rat2.denominator, rat2.numerator);
+        }
+    }else{
+        if(rat2.denominator == 1){
+            Rational(rat1.numerator, rat1.denominator * rat2.numerator);
+        }else{
+            Rational(rat1.numerator * rat2.denominator, rat1.denominator * rat2.numerator);
+        }
+    }
+}
+
+calculateExpression(ASTTree) -> Rational{
+    switch(ASTTree){
+        Add(e1, e2) : {
+            addRational(calculateExpression(e1), calculateExpression(e2));
+        };
+        Sub(e1, e2) : {
+            subRational(calculateExpression(e1), calculateExpression(e2));
+        };
+        Mul(e1, e2) : {
+            mulRational(calculateExpression(e1), calculateExpression(e2));
+        };
+        Div(e1, e2) : {
+            divRational(calculateExpression(e1), calculateExpression(e2));
+        };
+        Int(e1) : {
+            Rational(e1, 1);
+        };
+        Parentheses(e1) : {
+            calculateExpression(e1);
+        }
+    }
+}
+
+printRational(value : Rational) -> void{
+    println(i2s(value.numerator));
+    println("______________");
+    println(i2s(value.denominator));
+}

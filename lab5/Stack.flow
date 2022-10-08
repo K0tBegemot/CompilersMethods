@@ -1,0 +1,37 @@
+import runtime;
+
+export{
+    Stack<?> ::= StackStruct<?>;
+    StackStruct : (stack : ref [?], length : ref int);
+
+    pushToStack(stack : Stack<?>, element : ?) -> void;
+    popFromStack(stack : Stack<?>) -> Maybe<?>;
+}
+
+Stack<?> ::= StackStruct<?>;
+StackStruct : (stack : ref [?], length : ref int);
+
+pushToStack(stack : Stack<?>, element : ?) -> void{
+    switch(stack){
+        StackStruct(stackRef, stackLength) : {
+            refArrayPush(stackRef, element);
+            stackLength := ^stackLength + 1;
+        }
+    }
+}
+
+popFromStack(stack : Stack<?>) -> Maybe<?>{
+    switch(stack){
+        StackStruct(stackRef, stackLength) : {
+            if(^stackLength != 0)
+            {
+                retValue : ? = ^stackRef[^stackLength - 1];
+                stackRef := take(^stackRef, ^stackLength - 1);
+                stackLength := ^stackLength - 1;
+                Some(retValue);
+            }else{
+                None();
+            }
+        }
+    }
+}
