@@ -22,7 +22,7 @@ main(){
     //     t2 = setTree(t1, "SOOp", SOOp);
     //     SemanticActions(t2);
     // }
-    // result : Expr = parsic(lingoGrammar(), "(1-2-3 * 10)/3", specialPegActions);
+    // result : Expr = parsic(lingoGrammar(), "(1-2-3 * -10)/3", specialPegActions);
     // printAST(result);
     // text: string = createStringFromAST(result);
     // println(text);
@@ -35,6 +35,9 @@ main(){
     switch(ASTTree){
         Some(expr) : {
             printAST(expr);
+            rpnArray : [RPNExpr] = createRPNArrayFromASTTree(expr);
+            printRPNExprArray(rpnArray);
+            printRational(calculateExpression(expr));
         }
         None() : {}
     }

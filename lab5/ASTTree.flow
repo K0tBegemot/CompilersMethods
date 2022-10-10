@@ -3,29 +3,32 @@ import string;
 import RPN;
 
 export{
-    Expr ::= Add, Sub, Mul, Div, Int, Parentheses;
+    Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd;
     Add : (e1 : Expr, e2 : Expr);
     Sub : (e1 : Expr, e2 : Expr);
     Mul : (e1 : Expr, e2 : Expr);
     Div : (e1 : Expr, e2 : Expr);
     Int : (e1 : int);
     Parentheses : (e1 : Expr);
+    ReciprocalAdd : (e1 : Expr);
 
     FOOp(array : [flow]) -> Expr;
     SOOp(array : [flow]) -> Expr;
     printAST(ASTTree : Expr) -> void;
     createStringFromAST(ASTTree : Expr) -> string;
     createRPNArrayFromASTTree(ASTTree : Expr) -> [RPNExpr];
+    createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>;
 }
 
 //For string parsing and ASTTree
-Expr ::= Add, Sub, Mul, Div, Int, Parentheses;
+Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd;
 Add : (e1 : Expr, e2 : Expr);
 Sub : (e1 : Expr, e2 : Expr);
 Mul : (e1 : Expr, e2 : Expr);
 Div : (e1 : Expr, e2 : Expr);
 Int : (e1 : int);
 Parentheses : (e1 : Expr);
+ReciprocalAdd : (e1 : Expr);
 
 SubFO ::= SubAdd, SubSub;
 SubSO ::= SubMul, SubDiv;
@@ -73,6 +76,9 @@ printASTRecursive(ASTTree : Expr) -> string{
         Parentheses(e1) : {
             text + printASTRecursive(e1);
         }
+        ReciprocalAdd(e1) : {
+            text + "RecAdd[ " + printASTRecursive(e1) + " ]";
+        }
     }
 }
 
@@ -102,6 +108,9 @@ createStringFromASTRecursive(ASTTree){
         Parentheses(e1) : {
             text + "(" + createStringFromASTRecursive(e1) + ")";
         }
+        ReciprocalAdd(e1) : {
+            text + "-" + createStringFromASTRecursive(e1);
+        }
     }
 }
 
@@ -110,11 +119,134 @@ createStringFromAST(ASTTree : Expr) -> string{
     text;
 }
 
-createRPNArrayFromASTTreeRec(ASTTree : Expr){
-
+createRPNArrayFromASTTreeRec(ASTTree : Expr, arrayRef : ref [RPNExpr]) -> void{
+    switch(ASTTree){
+        Add(e1, e2) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+            createRPNArrayFromASTTreeRec(e2, arrayRef);
+            refArrayPush(arrayRef, RPNAdd());
+        }
+        Sub(e1, e2) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+            createRPNArrayFromASTTreeRec(e2, arrayRef);
+            refArrayPush(arrayRef, RPNSub());
+        }
+        Mul(e1, e2) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+            createRPNArrayFromASTTreeRec(e2, arrayRef);
+            refArrayPush(arrayRef, RPNMul());
+        }
+        Div(e1, e2) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+            createRPNArrayFromASTTreeRec(e2, arrayRef);
+            refArrayPush(arrayRef, RPNDiv());
+        }
+        Int(e1) : {
+            refArrayPush(arrayRef, RPNInt(e1));
+        }
+        Parentheses(e1) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+        }
+        ReciprocalAdd(e1) : {
+            createRPNArrayFromASTTreeRec(e1, arrayRef);
+            refArrayPush(arrayRef, RPNRecAdd());
+        }
+    }
 }
 
 createRPNArrayFromASTTree(ASTTree : Expr) -> [RPNExpr]{
     array : ref [RPNExpr] = ref [];
+    createRPNArrayFromASTTreeRec(ASTTree, array);
+    ^array;
+}
 
+for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> int{
+    if(valid == 1){
+        if(index < length(^array))
+        {
+        validNext : ref int = ref 1;
+        expr : RPNExpr = ^array[index];
+        switch(expr){
+        RPNInt(i) : {
+            pushToStack(stack, Int(i));
+            validNext := 1;
+        }
+        RPNAdd() : {
+            expr2Maybe : Maybe<Expr> = popFromStack(stack);
+            expr1Maybe : Maybe<Expr> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Expr = either(expr1Maybe, Int(0));
+                expr2: Expr = either(expr2Maybe, Int(0));
+                pushToStack(stack, Add(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNSub() : {
+            expr2Maybe : Maybe<Expr> = popFromStack(stack);
+            expr1Maybe : Maybe<Expr> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Expr = either(expr1Maybe, Int(0));
+                expr2: Expr = either(expr2Maybe, Int(0));
+                pushToStack(stack, Sub(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNMul() : {
+            expr2Maybe : Maybe<Expr> = popFromStack(stack);
+            expr1Maybe : Maybe<Expr> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Expr = either(expr1Maybe, Int(0));
+                expr2: Expr = either(expr2Maybe, Int(0));
+                pushToStack(stack, Mul(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNDiv() : {
+            expr2Maybe : Maybe<Expr> = popFromStack(stack);
+            expr1Maybe : Maybe<Expr> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Expr = either(expr1Maybe, Int(0));
+                expr2: Expr = either(expr2Maybe, Int(0));
+                pushToStack(stack, Div(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNRecAdd() : {
+            expr1Maybe : Maybe<Expr> = popFromStack(stack);
+            if(isSome(expr1Maybe)){
+                expr1 : Expr = either(expr1Maybe, Int(0));
+                pushToStack(stack, ReciprocalAdd(expr1));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        }
+        for1(array, index + 1, stack, ^validNext);
+        }else{
+            1;
+        }
+    }else{
+        0;
+    }
+}
+
+createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>{
+    stack : Stack<Expr> = StackStruct(ref [], ref 0);
+    index : int = 0;
+    valid : int = 1;
+    validRet : int = for1(ref array, index, stack, valid);
+    if(validRet == valid){
+        popFromStack(stack);
+    }else{
+        None();
+    }
 }

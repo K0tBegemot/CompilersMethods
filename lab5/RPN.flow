@@ -1,5 +1,4 @@
 import runtime;
-import ASTTree;
 import string;
 import lingo/pegcode/driver;
 import Stack;
@@ -8,27 +7,27 @@ import maybe;
 export{
     RPNGrammarOp : ref Maybe<[PegOp]>;
 
-    RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv;
-    //Int structure was impoprted from ASTTree
+    RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd;
     RPNInt : (i : int);
     RPNAdd : ();
     RPNSub : ();
     RPNMul : ();
     RPNDiv : ();
+    RPNRecAdd : ();
 
     createRPNGrammar() -> [PegOp];
     createRPNArray() -> [RPNExpr];
     printRPNExprArray(array : [RPNExpr]) -> void;
-    createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>;
     stringRPNExprFromArray(array : [RPNExpr]) -> string;
 }
 
-RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv;
+RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd;
 RPNInt : (i : int);
 RPNAdd : ();
 RPNSub : ();
 RPNMul : ();
 RPNDiv : ();
+RPNRecAdd : ();
 
 RPNGrammarOp : ref Maybe<[PegOp]> = ref None();
 
@@ -48,7 +47,7 @@ createRPNArray() -> [RPNExpr]{
         t1 = setTree(defaultPegActions.t, "CreateArray", CreateArray);
         SemanticActions(t1);
     }
-    result : [RPNExpr] = parsic(createRPNGrammar(), "10 9 +", specialPegActions);
+    result : [RPNExpr] = parsic(createRPNGrammar(), "10 9 ~ -", specialPegActions);
     result;
 }
 
@@ -79,6 +78,9 @@ printRPNExprArrayFor(array : [RPNExpr], index : int) -> string{
                 }
                 RPNDiv() : {
                     "/" + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
+                }
+                RPNRecAdd() : {
+                    "~" + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
                 }
             }
     }else{
@@ -119,6 +121,9 @@ stringRPNExprFromArrayFor(array : [RPNExpr], index : int){
                 RPNDiv() : {
                     "/" + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
                 }
+                RPNRecAdd() : {
+                    "~" + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
+                }
             }
     }else{
         "";
@@ -128,85 +133,4 @@ stringRPNExprFromArrayFor(array : [RPNExpr], index : int){
 stringRPNExprFromArray(array : [RPNExpr]) -> string{
     ret : string = stringRPNExprFromArrayFor(array, 0);
     ret;
-}
-
-for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> int{
-    if(valid == 1){
-        if(index < length(^array))
-        {
-        validNext : ref int = ref 1;
-        expr : RPNExpr = ^array[index];
-        switch(expr){
-        RPNInt(i) : {
-            pushToStack(stack, Int(i));
-            validNext := 1;
-        }
-        RPNAdd() : {
-            expr2Maybe : Maybe<Expr> = popFromStack(stack);
-            expr1Maybe : Maybe<Expr> = popFromStack(stack);
-            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
-                pushToStack(stack, Add(expr1, expr2));
-                validNext := 1;
-            }else{
-                validNext := 0;
-            }
-        }
-        RPNSub() : {
-            expr2Maybe : Maybe<Expr> = popFromStack(stack);
-            expr1Maybe : Maybe<Expr> = popFromStack(stack);
-            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
-                pushToStack(stack, Sub(expr1, expr2));
-                validNext := 1;
-            }else{
-                validNext := 0;
-            }
-        }
-        RPNMul() : {
-            expr2Maybe : Maybe<Expr> = popFromStack(stack);
-            expr1Maybe : Maybe<Expr> = popFromStack(stack);
-            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
-                pushToStack(stack, Mul(expr1, expr2));
-                validNext := 1;
-            }else{
-                validNext := 0;
-            }
-        }
-        RPNDiv() : {
-            expr2Maybe : Maybe<Expr> = popFromStack(stack);
-            expr1Maybe : Maybe<Expr> = popFromStack(stack);
-            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
-                pushToStack(stack, Div(expr1, expr2));
-                validNext := 1;
-            }else{
-                validNext := 0;
-            }
-        }
-        }
-        for1(array, index + 1, stack, ^validNext);
-        }else{
-            1;
-        }
-    }else{
-        0;
-    }
-}
-
-createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>{
-    stack : Stack<Expr> = StackStruct(ref [], ref 0);
-    index : int = 0;
-    valid : int = 1;
-    validRet : int = for1(ref array, index, stack, valid);
-    if(validRet == valid){
-        popFromStack(stack);
-    }else{
-        None();
-    }
 }

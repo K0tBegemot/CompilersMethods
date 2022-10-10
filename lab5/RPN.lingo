@@ -1,4 +1,4 @@
 expr = ws (number | operation)+:array{CreateArray(:array)};
 number = (('0'-'9')+)$value1 ws{RPNInt(s2i($value1))};
-operation = "+" ws {RPNAdd()} | "-" ws {RPNSub()} | "*" ws {RPNMul()} | "/" ws {RPNDiv()};
+operation = "+" ws {RPNAdd()} | "-" ws {RPNSub()} | "*" ws {RPNMul()} | "/" ws {RPNDiv()} | "~" ws {RPNRecAdd()};
 ws = (" " | "\n")*;

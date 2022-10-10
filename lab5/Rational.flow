@@ -98,6 +98,10 @@ divRational(rat1 : Rational, rat2 : Rational) -> Rational{
     }
 }
 
+subaddRational(rat1 : Rational) -> Rational{
+    Rational(rat1.numerator * -1, rat1.denominator);
+}
+
 calculateExpression(ASTTree) -> Rational{
     switch(ASTTree){
         Add(e1, e2) : {
@@ -117,6 +121,9 @@ calculateExpression(ASTTree) -> Rational{
         };
         Parentheses(e1) : {
             calculateExpression(e1);
+        }
+        ReciprocalAdd(e1) : {
+            subaddRational(calculateExpression(e1));
         }
     }
 }
