@@ -7,38 +7,32 @@ import lingo/pegcode/driver;
 import Rational;
 import ASTTree;
 import RPN;
-
-lingoGrammarOp : ref Maybe<[PegOp]> = ref None();
-
-lingoGrammar(){
-    onlyOnce(lingoGrammarOp, \ -> {
-        compilePegGrammar("#include example.lingo");
-    })
-}
+import ExecutionContext;
 
 main(){
-    // specialPegActions = {
-    //     t1 = setTree(defaultPegActions.t, "FOOp", FOOp);
-    //     t2 = setTree(t1, "SOOp", SOOp);
-    //     SemanticActions(t2);
-    // }
-    // result : Expr = parsic(lingoGrammar(), "(1-2-3 * -10)/3", specialPegActions);
     // printAST(result);
     // text: string = createStringFromAST(result);
     // println(text);
     // printRational(calculateExpression(result));
 
-    result : [RPNExpr] = createRPNArray();
-    printRPNExprArray(result);
-    println(stringRPNExprFromArray(result));
-    ASTTree : Maybe<Expr> = createASTTreeFromRPNExprArray(result);
-    switch(ASTTree){
-        Some(expr) : {
-            printAST(expr);
-            rpnArray : [RPNExpr] = createRPNArrayFromASTTree(expr);
-            printRPNExprArray(rpnArray);
-            printRational(calculateExpression(expr));
-        }
-        None() : {}
+    result : Maybe<ExecutionContext> = createExecutionContext();
+    if(isSome(result)){
+        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0)), makeTree()));
+        printExecutionContext(resultValue);
+        retValue : Rational = calculateExpression(resultValue);
+        printRational(retValue);
+    }else{
+        println("@@@");
     }
+    // println(stringRPNExprFromArray(result));
+    // ASTTree : Maybe<Expr> = createASTTreeFromRPNExprArray(result);
+    // switch(ASTTree){
+    //     Some(expr) : {
+    //         printAST(expr);
+    //         rpnArray : [RPNExpr] = createRPNArrayFromASTTree(expr);
+    //         printRPNExprArray(rpnArray);
+    //         //printRational(calculateExpression(expr));
+    //     }
+    //     None() : {}
+    // }
 }

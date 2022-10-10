@@ -5,51 +5,28 @@ import Stack;
 import maybe;
 
 export{
-    RPNGrammarOp : ref Maybe<[PegOp]>;
 
-    RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd;
+    RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd, RPNVariable;
     RPNInt : (i : int);
     RPNAdd : ();
     RPNSub : ();
     RPNMul : ();
     RPNDiv : ();
     RPNRecAdd : ();
+    RPNVariable : (name : string);
 
-    createRPNGrammar() -> [PegOp];
-    createRPNArray() -> [RPNExpr];
     printRPNExprArray(array : [RPNExpr]) -> void;
     stringRPNExprFromArray(array : [RPNExpr]) -> string;
 }
 
-RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd;
+RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd, RPNVariable;
 RPNInt : (i : int);
 RPNAdd : ();
 RPNSub : ();
 RPNMul : ();
 RPNDiv : ();
 RPNRecAdd : ();
-
-RPNGrammarOp : ref Maybe<[PegOp]> = ref None();
-
-CreateArray(array : [flow]) -> [RPNExpr]{
-    array[0];
-}
-
-createRPNGrammar() -> [PegOp]{
-    onlyOnce(RPNGrammarOp, \ -> {
-        compilePegGrammar("#include RPN.lingo");
-    })
-}
-
-
-createRPNArray() -> [RPNExpr]{
-    specialPegActions = {
-        t1 = setTree(defaultPegActions.t, "CreateArray", CreateArray);
-        SemanticActions(t1);
-    }
-    result : [RPNExpr] = parsic(createRPNGrammar(), "10 9 ~ -", specialPegActions);
-    result;
-}
+RPNVariable : (name : string);
 
 printComma(index : int, length : int){
     if(index < length - 1){
@@ -81,6 +58,9 @@ printRPNExprArrayFor(array : [RPNExpr], index : int) -> string{
                 }
                 RPNRecAdd() : {
                     "~" + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
+                }
+                RPNVariable(name) : {
+                    name + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
                 }
             }
     }else{
@@ -123,6 +103,9 @@ stringRPNExprFromArrayFor(array : [RPNExpr], index : int){
                 }
                 RPNRecAdd() : {
                     "~" + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
+                }
+                RPNVariable(name) : {
+                    name + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
                 }
             }
     }else{

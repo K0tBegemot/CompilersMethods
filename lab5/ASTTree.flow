@@ -3,7 +3,7 @@ import string;
 import RPN;
 
 export{
-    Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd;
+    Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd, Variable;
     Add : (e1 : Expr, e2 : Expr);
     Sub : (e1 : Expr, e2 : Expr);
     Mul : (e1 : Expr, e2 : Expr);
@@ -11,9 +11,8 @@ export{
     Int : (e1 : int);
     Parentheses : (e1 : Expr);
     ReciprocalAdd : (e1 : Expr);
-
-    FOOp(array : [flow]) -> Expr;
-    SOOp(array : [flow]) -> Expr;
+    Variable : (e1 : string);
+    
     printAST(ASTTree : Expr) -> void;
     createStringFromAST(ASTTree : Expr) -> string;
     createRPNArrayFromASTTree(ASTTree : Expr) -> [RPNExpr];
@@ -21,7 +20,7 @@ export{
 }
 
 //For string parsing and ASTTree
-Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd;
+Expr ::= Add, Sub, Mul, Div, Int, Parentheses, ReciprocalAdd, Variable;
 Add : (e1 : Expr, e2 : Expr);
 Sub : (e1 : Expr, e2 : Expr);
 Mul : (e1 : Expr, e2 : Expr);
@@ -29,6 +28,7 @@ Div : (e1 : Expr, e2 : Expr);
 Int : (e1 : int);
 Parentheses : (e1 : Expr);
 ReciprocalAdd : (e1 : Expr);
+Variable : (e1 : string);
 
 SubFO ::= SubAdd, SubSub;
 SubSO ::= SubMul, SubDiv;
@@ -36,24 +36,6 @@ SubAdd : (e1 : Expr);
 SubSub : (e1 : Expr);
 SubMul : (e1 : Expr);
 SubDiv : (e1 : Expr);
-
-FOOp(array : [flow]) -> Expr{
-    fold(array[1], array[0], \number, subexpression -> {
-        switch(subexpression : SubFO){
-            SubAdd(e1):Add(number, e1);
-            SubSub(e1):Sub(number, e1);
-        }
-    });
-}
-
-SOOp(array : [flow]) -> Expr{
-    fold(array[1], array[0], \number, subexpression -> {
-        switch(subexpression : SubSO){
-            SubMul(e1):Mul(number, e1);
-            SubDiv(e1):Div(number, e1);
-        }
-    });
-}
 
 printASTRecursive(ASTTree : Expr) -> string{
     text : string = "";
@@ -78,6 +60,9 @@ printASTRecursive(ASTTree : Expr) -> string{
         }
         ReciprocalAdd(e1) : {
             text + "RecAdd[ " + printASTRecursive(e1) + " ]";
+        }
+        Variable(e1) : {
+            text + "Variable[ " + e1 + " ]";
         }
     }
 }
@@ -110,6 +95,9 @@ createStringFromASTRecursive(ASTTree){
         }
         ReciprocalAdd(e1) : {
             text + "-" + createStringFromASTRecursive(e1);
+        }
+        Variable(e1) : {
+            text + e1;
         }
     }
 }
@@ -151,6 +139,9 @@ createRPNArrayFromASTTreeRec(ASTTree : Expr, arrayRef : ref [RPNExpr]) -> void{
             createRPNArrayFromASTTreeRec(e1, arrayRef);
             refArrayPush(arrayRef, RPNRecAdd());
         }
+        Variable(e1) : {
+            refArrayPush(arrayRef, RPNVariable(e1));
+        }
     }
 }
 
@@ -169,6 +160,10 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
         switch(expr){
         RPNInt(i) : {
             pushToStack(stack, Int(i));
+            validNext := 1;
+        }
+        RPNVariable(name) : {
+            pushToStack(stack, Variable(name));
             validNext := 1;
         }
         RPNAdd() : {

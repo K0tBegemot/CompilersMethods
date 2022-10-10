@@ -2,19 +2,17 @@ import runtime;
 import ds/tuples;
 import ASTTree;
 import string;
+import RationalStruct;
+import ExecutionContext;
 
 export{
-    Rational : (numerator : int, denominator : int);
     addRational(rat1 : Rational, rat2 : Rational) -> Rational;
     subRational(rat1 : Rational, rat2 : Rational) -> Rational;
     mulRational(rat1 : Rational, rat2 : Rational) -> Rational;
     divRational(rat1 : Rational, rat2 : Rational) -> Rational;
-    calculateExpression(ASTTree) -> Rational;
+    calculateExpression(context : ExecutionContext) -> Rational;
     printRational(value : Rational) -> void;
 }
-
-//For calculating purpose
-Rational : (numerator : int, denominator : int);
 
 maxRat(pair : Pair) -> Pair{
     if(pair.first > pair.second){
@@ -102,29 +100,45 @@ subaddRational(rat1 : Rational) -> Rational{
     Rational(rat1.numerator * -1, rat1.denominator);
 }
 
-calculateExpression(ASTTree) -> Rational{
-    switch(ASTTree){
+calculateExpressionRec(expr : Expr, tree : Tree<Variable, Rational>) -> Rational{
+    switch(expr){
         Add(e1, e2) : {
-            addRational(calculateExpression(e1), calculateExpression(e2));
+            addRational(calculateExpressionRec(e1, tree), calculateExpressionRec(e2, tree));
         };
         Sub(e1, e2) : {
-            subRational(calculateExpression(e1), calculateExpression(e2));
+            subRational(calculateExpressionRec(e1, tree), calculateExpressionRec(e2, tree));
         };
         Mul(e1, e2) : {
-            mulRational(calculateExpression(e1), calculateExpression(e2));
+            mulRational(calculateExpressionRec(e1, tree), calculateExpressionRec(e2, tree));
         };
         Div(e1, e2) : {
-            divRational(calculateExpression(e1), calculateExpression(e2));
+            divRational(calculateExpressionRec(e1, tree), calculateExpressionRec(e2, tree));
         };
         Int(e1) : {
             Rational(e1, 1);
         };
         Parentheses(e1) : {
-            calculateExpression(e1);
+            calculateExpressionRec(e1, tree);
         }
         ReciprocalAdd(e1) : {
-            subaddRational(calculateExpression(e1));
+            subaddRational(calculateExpressionRec(e1, tree));
         }
+        Variable(e1) : {
+            number : Maybe<Rational> = lookupTree(tree, Variable(e1));
+            value : Rational = either(number, Rational(0, 0));
+            value;
+        }
+    }
+}
+
+calculateExpression(context : ExecutionContext) -> Rational{
+    astTree : Maybe<Expr> = context.expr;
+    if(isSome(astTree)){
+        astTreeValue = either(astTree, Int(0));
+        ret : Rational = calculateExpressionRec(astTreeValue, context.tree);
+        ret;
+    }else{
+        Rational(0, 0);
     }
 }
 

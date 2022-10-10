@@ -1,0 +1,5 @@
+export{
+    Rational : (numerator : int, denominator : int);
+}
+
+Rational : (numerator : int, denominator : int);

@@ -1,0 +1,299 @@
+import runtime;
+import ASTTree;
+import RPN;
+import ds/tree;
+import ds/tuples;
+import RationalStruct;
+import lingo/pegcode/driver;
+
+export{
+    ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);
+    RPNECEntry : (var : RPNVariable, value : Rational);
+    ECEntry : (var : Variable, value : Rational);
+
+    RPNGrammarOp : ref Maybe<[PegOp]>;
+    GrammarOp : ref Maybe<[PegOp]>;
+
+    createRPNExecutionContext() -> Maybe<ExecutionContext>;
+    createExecutionContext() -> Maybe<ExecutionContext>;
+    getExprFromEC(context : ExecutionContext) -> Expr;
+    printExecutionContext(context : ExecutionContext) -> void;
+    printVarTree(tree : Tree<Variable, Rational>) -> void;
+}
+
+
+ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);
+
+RPNECEntry : (var : RPNVariable, value : Rational);
+ECEntry : (var : Variable, value : Rational);
+
+/////
+getExprFromEC(context : ExecutionContext) -> Expr{
+    resultValue : Expr = either(context.expr, Int(0));
+    resultValue;
+}
+
+searchVariablesRec(expr : Expr, tree : ref Tree<Variable, Rational>) -> void{
+    switch(expr){
+        Add(e1, e2) : {
+            searchVariablesRec(e1, tree);
+            searchVariablesRec(e2, tree);
+        }
+        Sub(e1, e2) : {
+            searchVariablesRec(e1, tree);
+            searchVariablesRec(e2, tree);
+        }
+        Mul(e1, e2) : {
+            searchVariablesRec(e1, tree);
+            searchVariablesRec(e2, tree);
+        }
+        Div(e1, e2) : {
+            searchVariablesRec(e1, tree);
+            searchVariablesRec(e2, tree);
+        }
+        Int(e1) : {}
+        Parentheses(e1) : {
+            searchVariablesRec(e1, tree);
+        }
+        ReciprocalAdd(e1) : {
+            searchVariablesRec(e1, tree);
+        }
+        Variable(e1) : {
+            if(isSome(lookupTree(^tree, Variable(e1)))){
+                
+            }else{
+                newTree = setTree(^tree, Variable(e1), Rational(0, 1));
+                tree := newTree;
+            }
+        }
+    }
+}
+
+initialiseDefaultExecutionTreeNodes(context : ExecutionContext) -> Maybe<ExecutionContext>{
+    if(isSome(context.expr)){
+        newTree = ref context.tree;
+        searchVariablesRec(either(context.expr, Int(0)), newTree);
+        Some(ExecutionContext(context.expr, ^newTree));
+    }else{
+        None();
+    }
+}
+
+createListOfVariables(expr : Expr, array : ref [Variable]) -> void{
+    switch(expr){
+        Add(e1, e2) : {
+            createListOfVariables(e1, array);
+            createListOfVariables(e2, array);
+        }
+        Sub(e1, e2) : {
+            createListOfVariables(e1, array);
+            createListOfVariables(e2, array);
+        }
+        Mul(e1, e2) : {
+            createListOfVariables(e1, array);
+            createListOfVariables(e2, array);
+        }
+        Div(e1, e2) : {
+            createListOfVariables(e1, array);
+            createListOfVariables(e2, array);
+        }
+        Int(e1) : {}
+        Parentheses(e1) : {
+            createListOfVariables(e1, array);
+        }
+        ReciprocalAdd(e1) : {
+            createListOfVariables(e1, array);
+        }
+        Variable(e1) : {
+            refArrayPush(array, Variable(e1));
+        }
+    }
+}
+
+verifyEC(context : ExecutionContext) -> int{
+    if(isSome(context.expr)){
+        arrayOfVariablesInASTTree : ref [Variable] = ref[];
+        expr : Expr = either(context.expr, Int(0));
+        createListOfVariables(expr, arrayOfVariablesInASTTree);
+        arrayOfVariablesInEC : [Variable] = getTreeKeys(context.tree);
+        if(^arrayOfVariablesInASTTree == arrayOfVariablesInEC){
+            1;
+        }else{
+            0;
+        }
+    }else{
+        0;
+    }
+}
+
+RPNIntToRational1(array : [flow]) -> Rational{
+    number : RPNInt = array[0];
+    Rational(number.i, 1);
+}
+
+RPNIntToRational2(array : [flow]) -> Rational{
+    number1 : RPNInt = array[0];
+    number2 : RPNInt = array[1];
+    Rational(number1.i, number2.i);
+}
+
+createRPNExecutionTreeRec(array : [RPNECEntry], index : int, tree : ref Tree<Variable, Rational>) -> void{
+    if(index < length(array)){
+        entry : RPNECEntry = array[index];
+        newTree : Tree<Variable, Rational> = setTree(^tree, Variable(entry.var.name), entry.value);
+        tree := newTree;
+        createRPNExecutionTreeRec(array, index + 1, tree);
+    }
+}
+
+createRPNExecutionTree(array : [RPNECEntry]) -> Tree<Variable, Rational>{
+    tree : ref Tree<Variable, Rational> = ref makeTree();
+    createRPNExecutionTreeRec(array, 0, tree);
+    ^tree;
+}
+
+printNodeRec(array : [Variable], index : int, tree : Tree<Variable, Rational>) -> void{
+    if(index < length(array)){
+        text : string = array[index].e1 + " ";
+        ratM : Maybe<Rational> = lookupTree(tree, array[index]);
+        number : Rational = either(ratM, Rational(0, 0));
+        println(text + i2s(number.numerator) + "/" + i2s(number.denominator));
+    }
+}
+
+printVarTree(tree : Tree<Variable, Rational>) -> void{
+    array : [Variable] = getTreeKeys(tree);
+    printNodeRec(array, 0, tree);
+}
+
+printExecutionContext(context : ExecutionContext) -> void{
+    printAST(getExprFromEC(context));
+    printVarTree(context.tree);
+}
+
+CreateRPNExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
+    context : ExecutionContext = ExecutionContext(createASTTreeFromRPNExprArray(array[0]), createRPNExecutionTree(array[1]));
+    newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
+    if(isSome(newContext))
+    {
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0)), makeTree()));
+        if(verifyEC(newContextValue) == 1){
+            Some(newContextValue);
+        }else{
+            None();
+        }
+    }else{
+        None();
+    }
+}
+
+/////
+
+RPNGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+CreateArray(array : [flow]) -> [RPNExpr]{
+    array[0];
+}
+
+createRPNGrammar() -> [PegOp]{
+    onlyOnce(RPNGrammarOp, \ -> {
+        compilePegGrammar("#include RPN.lingo");
+    })
+}
+
+createRPNExecutionContext() -> Maybe<ExecutionContext>{
+    specialPegActions = {
+        t1 = setTree(defaultPegActions.t, "CreateArray", CreateArray);
+        t2 = setTree(t1, "CreateRPNExecutionContextLingo", CreateRPNExecutionContextLingo);
+        t3 = setTree(t2, "RPNIntToRational1", RPNIntToRational1);
+        t4 = setTree(t3, "RPNIntToRational2", RPNIntToRational2);
+        SemanticActions(t4);
+    }
+    result : Maybe<ExecutionContext> = parsic(createRPNGrammar(), "10 #Var ~ - , #Var = 11", specialPegActions);
+    result;
+}
+
+/////
+
+createExecutionTreeRec(array : [ECEntry], index : int, tree : ref Tree<Variable, Rational>) -> void{
+    if(index < length(array)){
+        entry : ECEntry = array[index];
+        newTree : Tree<Variable, Rational> = setTree(^tree, entry.var, entry.value);
+        tree := newTree;
+        createExecutionTreeRec(array, index + 1, tree);
+    }
+}
+
+createExecutionTree(array : [ECEntry]) -> Tree<Variable, Rational>{
+    tree : ref Tree<Variable, Rational> = ref makeTree();
+    createExecutionTreeRec(array, 0, tree);
+    ^tree;
+}
+
+CreateExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
+    context : ExecutionContext = ExecutionContext(Some(array[0]), createExecutionTree(array[1]));
+    newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
+    if(isSome(newContext))
+    {
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0)), makeTree()));
+        if(verifyEC(newContextValue) == 1){
+            Some(newContextValue);
+        }else{
+            None();
+        }
+    }else{
+        None();
+    }
+}
+
+/////
+
+GrammarOp : ref Maybe<[PegOp]> = ref None();
+
+createGrammar() -> [PegOp]{
+    onlyOnce(GrammarOp, \ -> {
+        compilePegGrammar("#include example.lingo");
+    })
+}
+
+FOOp(array : [flow]) -> Expr{
+    fold(array[1], array[0], \number, subexpression -> {
+        switch(subexpression : SubFO){
+            SubAdd(e1):Add(number, e1);
+            SubSub(e1):Sub(number, e1);
+        }
+    });
+}
+
+SOOp(array : [flow]) -> Expr{
+    fold(array[1], array[0], \number, subexpression -> {
+        switch(subexpression : SubSO){
+            SubMul(e1):Mul(number, e1);
+            SubDiv(e1):Div(number, e1);
+        }
+    });
+}
+
+IntToRational1(array : [flow]) -> Rational{
+    number : Int = array[0];
+    Rational(number.e1, 1);
+}
+
+IntToRational2(array : [flow]) -> Rational{
+    number1 : Int = array[0];
+    number2 : Int = array[1];
+    Rational(number1.e1, number2.e1);
+}
+
+createExecutionContext() -> Maybe<ExecutionContext>{
+    specialPegActions = {
+        t1 = setTree(defaultPegActions.t, "FOOp", FOOp);
+        t2 = setTree(t1, "SOOp", SOOp);
+        t3 = setTree(t2, "IntToRational1", IntToRational1);
+        t4 = setTree(t3, "IntToRational2", IntToRational2);
+        t5 = setTree(t4, "CreateExecutionContextLingo", CreateExecutionContextLingo);
+        SemanticActions(t5);
+    }
+    result : Maybe<ExecutionContext> = parsic(createGrammar(), "10 - -#Var , #Var = 11", specialPegActions);
+    result;
+}
