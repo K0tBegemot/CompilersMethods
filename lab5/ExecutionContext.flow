@@ -209,7 +209,7 @@ createRPNExecutionContext() -> Maybe<ExecutionContext>{
         t4 = setTree(t3, "RPNIntToRational2", RPNIntToRational2);
         SemanticActions(t4);
     }
-    result : Maybe<ExecutionContext> = parsic(createRPNGrammar(), "10 #Var ~ - , #Var = 11", specialPegActions);
+    result : Maybe<ExecutionContext> = parsic(createRPNGrammar(), "10 10 / #Var 2 / / , #Var = 10", specialPegActions);
     result;
 }
 

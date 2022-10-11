@@ -4,6 +4,7 @@ import ASTTree;
 import string;
 import RationalStruct;
 import ExecutionContext;
+import dynamic;
 
 export{
     addRational(rat1 : Rational, rat2 : Rational) -> Rational;
@@ -131,12 +132,65 @@ calculateExpressionRec(expr : Expr, tree : Tree<Variable, Rational>) -> Rational
     }
 }
 
+simplifyFractions(expr : Expr) -> Expr{
+    switch(expr){
+        Add(e1, e2) : {
+            Add(simplifyFractions(e1), simplifyFractions(e2));
+        };
+        Sub(e1, e2) : {
+            Sub(simplifyFractions(e1), simplifyFractions(e2));
+        };
+        Mul(e1, e2) : {
+            Mul(simplifyFractions(e1), simplifyFractions(e2));
+        };
+        Div(e1, e2) : {
+            if(isSameStructType(e1, Div(Int(0), Int(0))) && isSameStructType(e2, Div(Int(0), Int(0)))){
+                array1 : [Expr]= extractStructArguments(e1);
+                array2 : [Expr]= extractStructArguments(e2);
+                Div(Mul(array1[0],array2[1]), Mul(array1[1],array2[0]));
+            }else{
+                if(isSameStructType(e1, Div(Int(0), Int(0)))){
+                    array1 : [Expr]= extractStructArguments(e1);
+                    Div(array1[0],Mul(array1[1], e2));
+                }else{
+                    if(isSameStructType(e2, Div(Int(0), Int(0)))){
+                        array1 : [Expr]= extractStructArguments(e2);
+                        Div(Mul(e1,array1[1]),array1[0]);
+                    }else{
+                        Div(simplifyFractions(e1), simplifyFractions(e2));
+                    }
+                }
+            }
+        };
+        Int(e1) : {
+            Int(e1);
+        };
+        Parentheses(e1) : {
+            Parentheses(simplifyFractions(e1));
+        }
+        ReciprocalAdd(e1) : {
+            ReciprocalAdd(simplifyFractions(e1));
+        }
+        Variable(e1) : {
+            Variable(e1);
+        }
+    }
+}
+
+simplifyRational(number : Rational) -> Rational{
+    gcd : int = euclidianGCDAlg(Pair(number.numerator, number.denominator));
+    Rational(number.numerator / gcd, number.denominator / gcd);
+}
+
 calculateExpression(context : ExecutionContext) -> Rational{
     astTree : Maybe<Expr> = context.expr;
     if(isSome(astTree)){
-        astTreeValue = either(astTree, Int(0));
-        ret : Rational = calculateExpressionRec(astTreeValue, context.tree);
-        ret;
+        astTreeValue : Expr = either(astTree, Int(0));
+        astTreeValue2 : Expr = simplifyFractions(astTreeValue);
+        //printAST(astTreeValue2);
+        ret : Rational = calculateExpressionRec(astTreeValue2, context.tree);
+        ret2 : Rational = simplifyRational(ret);
+        ret2;
     }else{
         Rational(0, 0);
     }
