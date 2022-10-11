@@ -115,8 +115,12 @@ calculateExpressionRec(expr : Expr, tree : Tree<Variable, Rational>) -> Rational
         Div(e1, e2) : {
             divRational(calculateExpressionRec(e1, tree), calculateExpressionRec(e2, tree));
         };
-        Int(e1) : {
-            Rational(e1, 1);
+        Int(e1, isParam) : {
+            if(isParam == 1){
+                Rational(0, 1);
+            }else{
+                Rational(e1, 1);
+            }
         };
         Parentheses(e1) : {
             calculateExpressionRec(e1, tree);
@@ -144,16 +148,16 @@ simplifyFractions(expr : Expr) -> Expr{
             Mul(simplifyFractions(e1), simplifyFractions(e2));
         };
         Div(e1, e2) : {
-            if(isSameStructType(e1, Div(Int(0), Int(0))) && isSameStructType(e2, Div(Int(0), Int(0)))){
+            if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0))) && isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
                 array1 : [Expr]= extractStructArguments(e1);
                 array2 : [Expr]= extractStructArguments(e2);
                 Div(Mul(array1[0],array2[1]), Mul(array1[1],array2[0]));
             }else{
-                if(isSameStructType(e1, Div(Int(0), Int(0)))){
+                if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0)))){
                     array1 : [Expr]= extractStructArguments(e1);
                     Div(array1[0],Mul(array1[1], e2));
                 }else{
-                    if(isSameStructType(e2, Div(Int(0), Int(0)))){
+                    if(isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
                         array1 : [Expr]= extractStructArguments(e2);
                         Div(Mul(e1,array1[1]),array1[0]);
                     }else{
@@ -162,8 +166,8 @@ simplifyFractions(expr : Expr) -> Expr{
                 }
             }
         };
-        Int(e1) : {
-            Int(e1);
+        Int(e1, isParam) : {
+            Int(e1, isParam);
         };
         Parentheses(e1) : {
             Parentheses(simplifyFractions(e1));
@@ -178,17 +182,51 @@ simplifyFractions(expr : Expr) -> Expr{
 }
 
 simplifyRational(number : Rational) -> Rational{
-    gcd : int = euclidianGCDAlg(Pair(number.numerator, number.denominator));
+    gcd : int = euclidianGCDAlg(Pair(absRat(number.numerator), absRat(number.denominator)));
     Rational(number.numerator / gcd, number.denominator / gcd);
+}
+
+calculateFraction(ASTTree : Expr, var : Variable) -> Expr{
+    switch(ASTTree){
+        Add(e1, e2) : {
+            Add(calculateFraction(e1, var), calculateFraction(e2, var));
+        };
+        Sub(e1, e2) : {
+            Sub(calculateFraction(e1, var), calculateFraction(e2, var));
+        };
+        Mul(e1, e2) : {
+            Add(Mul(calculateFraction(e1, var), e2), Mul(e1, calculateFraction(e2, var)));
+        };
+        Div(e1, e2) : {
+            Div(Sub(Mul(calculateFraction(e1, var), e2), Mul(e1, calculateFraction(e2, var))), Mul(e2, e2));
+        };
+        Int(e1, isParam) : {
+            Int(0, 0);
+        };
+        Parentheses(e1) : {
+            Parentheses(calculateFraction(e1, var));
+        }
+        ReciprocalAdd(e1) : {
+            ReciprocalAdd(calculateFraction(e1, var));
+        }
+        Variable(e2) : {
+            if(e2 == var.e1){
+                Int(1, 0);
+            }else{
+                Int(0, 0);
+            }
+        }
+    }
 }
 
 calculateExpression(context : ExecutionContext) -> Rational{
     astTree : Maybe<Expr> = context.expr;
     if(isSome(astTree)){
-        astTreeValue : Expr = either(astTree, Int(0));
+        astTreeValue : Expr = either(astTree, Int(0, 0));
         astTreeValue2 : Expr = simplifyFractions(astTreeValue);
         //printAST(astTreeValue2);
-        ret : Rational = calculateExpressionRec(astTreeValue2, context.tree);
+        //astTreeValue3 : Expr = calculateFraction(astTreeValue2, Variable("#Var"));
+        ret : Rational = rightRational(calculateExpressionRec(astTreeValue2, context.tree));
         ret2 : Rational = simplifyRational(ret);
         ret2;
     }else{

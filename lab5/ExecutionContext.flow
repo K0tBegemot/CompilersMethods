@@ -7,9 +7,15 @@ import RationalStruct;
 import lingo/pegcode/driver;
 
 export{
-    ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);
+    ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);//, rules : Pair<Expr, Expr>
+
+    // RPNECAdditionExpr ::= RPNECEntry, RPNECEntryRule;
+    // ECAdditionExpr ::= ECEntry, ECEntryRule;
+
     RPNECEntry : (var : RPNVariable, value : Rational);
+    // RPNECEntryRule : (expr1 : RPNExpr, expr2 : RPNExpr);
     ECEntry : (var : Variable, value : Rational);
+    // ECEntryRule : (expr1 : Expr, expr2 : Expr);
 
     RPNGrammarOp : ref Maybe<[PegOp]>;
     GrammarOp : ref Maybe<[PegOp]>;
@@ -22,14 +28,19 @@ export{
 }
 
 
-ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);
+ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);//, rules : Pair<Expr, Expr>
+
+// RPNECAdditionExpr ::= RPNECEntry, RPNECEntryRule;
+// ECAdditionExpr ::= ECEntry, ECEntryRule;
 
 RPNECEntry : (var : RPNVariable, value : Rational);
+// RPNECEntryRule : (expr1 : RPNExpr, expr2 : RPNExpr);
 ECEntry : (var : Variable, value : Rational);
+// ECEntryRule : (expr1 : Expr, expr2 : Expr);
 
 /////
 getExprFromEC(context : ExecutionContext) -> Expr{
-    resultValue : Expr = either(context.expr, Int(0));
+    resultValue : Expr = either(context.expr, Int(0, 0));
     resultValue;
 }
 
@@ -51,7 +62,7 @@ searchVariablesRec(expr : Expr, tree : ref Tree<Variable, Rational>) -> void{
             searchVariablesRec(e1, tree);
             searchVariablesRec(e2, tree);
         }
-        Int(e1) : {}
+        Int(e1, isParam) : {}
         Parentheses(e1) : {
             searchVariablesRec(e1, tree);
         }
@@ -72,7 +83,7 @@ searchVariablesRec(expr : Expr, tree : ref Tree<Variable, Rational>) -> void{
 initialiseDefaultExecutionTreeNodes(context : ExecutionContext) -> Maybe<ExecutionContext>{
     if(isSome(context.expr)){
         newTree = ref context.tree;
-        searchVariablesRec(either(context.expr, Int(0)), newTree);
+        searchVariablesRec(either(context.expr, Int(0, 0)), newTree);
         Some(ExecutionContext(context.expr, ^newTree));
     }else{
         None();
@@ -97,7 +108,7 @@ createListOfVariables(expr : Expr, array : ref [Variable]) -> void{
             createListOfVariables(e1, array);
             createListOfVariables(e2, array);
         }
-        Int(e1) : {}
+        Int(e1, isParam) : {}
         Parentheses(e1) : {
             createListOfVariables(e1, array);
         }
@@ -113,7 +124,7 @@ createListOfVariables(expr : Expr, array : ref [Variable]) -> void{
 verifyEC(context : ExecutionContext) -> int{
     if(isSome(context.expr)){
         arrayOfVariablesInASTTree : ref [Variable] = ref[];
-        expr : Expr = either(context.expr, Int(0));
+        expr : Expr = either(context.expr, Int(0, 0));
         createListOfVariables(expr, arrayOfVariablesInASTTree);
         arrayOfVariablesInEC : [Variable] = getTreeKeys(context.tree);
         if(^arrayOfVariablesInASTTree == arrayOfVariablesInEC){
@@ -176,7 +187,7 @@ CreateRPNExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
     newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
     if(isSome(newContext))
     {
-        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0)), makeTree()));
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree()));
         if(verifyEC(newContextValue) == 1){
             Some(newContextValue);
         }else{
@@ -235,7 +246,7 @@ CreateExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
     newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
     if(isSome(newContext))
     {
-        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0)), makeTree()));
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree()));
         if(verifyEC(newContextValue) == 1){
             Some(newContextValue);
         }else{

@@ -8,7 +8,7 @@ export{
     Sub : (e1 : Expr, e2 : Expr);
     Mul : (e1 : Expr, e2 : Expr);
     Div : (e1 : Expr, e2 : Expr);
-    Int : (e1 : int);
+    Int : (e1 : int, isParameter : int);
     Parentheses : (e1 : Expr);
     ReciprocalAdd : (e1 : Expr);
     Variable : (e1 : string);
@@ -25,7 +25,7 @@ Add : (e1 : Expr, e2 : Expr);
 Sub : (e1 : Expr, e2 : Expr);
 Mul : (e1 : Expr, e2 : Expr);
 Div : (e1 : Expr, e2 : Expr);
-Int : (e1 : int);
+Int : (e1 : int, isParameter : int);
 Parentheses : (e1 : Expr);
 ReciprocalAdd : (e1 : Expr);
 Variable : (e1 : string);
@@ -52,8 +52,13 @@ printASTRecursive(ASTTree : Expr) -> string{
         Div(e1, e2) : {
             text + "Div[ " + printASTRecursive(e1) + " , " + printASTRecursive(e2) + " ]";
         };
-        Int(e1) : {
-            text + "Int[ " + i2s(e1) + " ]";
+        Int(e1, e2) : {
+            if(e2 == 1)
+            {
+                text + "Parameter[]";
+            }else{
+                text + "Int[ " + i2s(e1) + " ]";
+            }
         };
         Parentheses(e1) : {
             text + printASTRecursive(e1);
@@ -87,8 +92,12 @@ createStringFromASTRecursive(ASTTree){
         Div(e1, e2) : {
             text + createStringFromASTRecursive(e1) + "/" + createStringFromASTRecursive(e2);
         };
-        Int(e1) : {
-            text + i2s(e1);
+        Int(e1, e2) : {
+            if(e2 == 1){
+                text + "_Parameter_";
+            }else{
+                text + i2s(e1);
+            }
         };
         Parentheses(e1) : {
             text + "(" + createStringFromASTRecursive(e1) + ")";
@@ -129,8 +138,8 @@ createRPNArrayFromASTTreeRec(ASTTree : Expr, arrayRef : ref [RPNExpr]) -> void{
             createRPNArrayFromASTTreeRec(e2, arrayRef);
             refArrayPush(arrayRef, RPNDiv());
         }
-        Int(e1) : {
-            refArrayPush(arrayRef, RPNInt(e1));
+        Int(e1, e2) : {
+            refArrayPush(arrayRef, RPNInt(e1, e2));
         }
         Parentheses(e1) : {
             createRPNArrayFromASTTreeRec(e1, arrayRef);
@@ -158,8 +167,8 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
         validNext : ref int = ref 1;
         expr : RPNExpr = ^array[index];
         switch(expr){
-        RPNInt(i) : {
-            pushToStack(stack, Int(i));
+        RPNInt(i, isParam) : {
+            pushToStack(stack, Int(i, isParam));
             validNext := 1;
         }
         RPNVariable(name) : {
@@ -170,8 +179,8 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
             expr2Maybe : Maybe<Expr> = popFromStack(stack);
             expr1Maybe : Maybe<Expr> = popFromStack(stack);
             if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
+                expr1 : Expr = either(expr1Maybe, Int(0, 0));
+                expr2: Expr = either(expr2Maybe, Int(0, 0));
                 pushToStack(stack, Add(expr1, expr2));
                 validNext := 1;
             }else{
@@ -182,8 +191,8 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
             expr2Maybe : Maybe<Expr> = popFromStack(stack);
             expr1Maybe : Maybe<Expr> = popFromStack(stack);
             if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
+                expr1 : Expr = either(expr1Maybe, Int(0, 0));
+                expr2: Expr = either(expr2Maybe, Int(0, 0));
                 pushToStack(stack, Sub(expr1, expr2));
                 validNext := 1;
             }else{
@@ -194,8 +203,8 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
             expr2Maybe : Maybe<Expr> = popFromStack(stack);
             expr1Maybe : Maybe<Expr> = popFromStack(stack);
             if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
+                expr1 : Expr = either(expr1Maybe, Int(0, 0));
+                expr2: Expr = either(expr2Maybe, Int(0, 0));
                 pushToStack(stack, Mul(expr1, expr2));
                 validNext := 1;
             }else{
@@ -206,8 +215,8 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
             expr2Maybe : Maybe<Expr> = popFromStack(stack);
             expr1Maybe : Maybe<Expr> = popFromStack(stack);
             if(isSome(expr1Maybe) && isSome(expr2Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
-                expr2: Expr = either(expr2Maybe, Int(0));
+                expr1 : Expr = either(expr1Maybe, Int(0, 0));
+                expr2: Expr = either(expr2Maybe, Int(0, 0));
                 pushToStack(stack, Div(expr1, expr2));
                 validNext := 1;
             }else{
@@ -217,7 +226,7 @@ for1(array : ref [RPNExpr], index : int, stack : Stack<Expr>, valid : int) -> in
         RPNRecAdd() : {
             expr1Maybe : Maybe<Expr> = popFromStack(stack);
             if(isSome(expr1Maybe)){
-                expr1 : Expr = either(expr1Maybe, Int(0));
+                expr1 : Expr = either(expr1Maybe, Int(0, 0));
                 pushToStack(stack, ReciprocalAdd(expr1));
                 validNext := 1;
             }else{

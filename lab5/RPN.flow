@@ -7,7 +7,7 @@ import maybe;
 export{
 
     RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd, RPNVariable;
-    RPNInt : (i : int);
+    RPNInt : (i : int, isParameter : int);
     RPNAdd : ();
     RPNSub : ();
     RPNMul : ();
@@ -20,7 +20,7 @@ export{
 }
 
 RPNExpr ::= RPNInt, RPNAdd, RPNSub, RPNMul, RPNDiv, RPNRecAdd, RPNVariable;
-RPNInt : (i : int);
+RPNInt : (i : int, isParameter : int);
 RPNAdd : ();
 RPNSub : ();
 RPNMul : ();
@@ -41,8 +41,12 @@ printRPNExprArrayFor(array : [RPNExpr], index : int) -> string{
     if(index < length){
         expr : RPNExpr = array[index];
         switch(expr){
-                RPNInt(i) : {
-                    i2s(i) + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
+                RPNInt(i, isParam) : {
+                    if(isParam == 1){
+                        "_Parameter_" + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
+                    }else{
+                        i2s(i) + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
+                    }
                 }
                 RPNAdd() : {
                     "+" + printComma(index, length) + printRPNExprArrayFor(array, index + 1);
@@ -86,8 +90,12 @@ stringRPNExprFromArrayFor(array : [RPNExpr], index : int){
     if(index < length){
         expr : RPNExpr = array[index];
         switch(expr){
-                RPNInt(i) : {
-                    i2s(i) + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
+                RPNInt(i, isParam) : {
+                    if(isParam == 1){
+                        "_Parameter_" + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
+                    }else{
+                        i2s(i) + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);
+                    }
                 }
                 RPNAdd() : {
                     "+" + printSpace(index, length) + stringRPNExprFromArrayFor(array, index + 1);

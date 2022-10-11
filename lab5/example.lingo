@@ -9,9 +9,9 @@ soexp = literal:value1 (subMul | subDiv)*:value2{SOOp(:value1, :value2)};
 subMul = "*" ws literal:value1{SubMul(:value1)};
 subDiv = "/" ws literal:value1{SubDiv(:value1)};
 literal = int:value1 ws {:value1} | recadd int:value1 ws {ReciprocalAdd(:value1)} | 
-            variable:value1 ws {:value1} | recadd variable:value1 ws {ReciprocalAdd(:value1)} |  
+            variable:value1 ws {:value1} | recadd variable:value1 ws {ReciprocalAdd(:value1)} | 
             "(" expr:value1 ")" ws {Parentheses(:value1)} | recadd "(" expr:value1 ")" ws {ReciprocalAdd(Parentheses(:value1))};
 recadd = "-";
-int = (('0'-'9')+)$value1 {Int(s2i($value1))};
+int = (('0'-'9')+)$value1 {Int(s2i($value1), 0)};
 variable = ("#" ('a'-'z' | 'A'-'Z')+)$value1 {Variable($value1)};
 ws = (" " | "\n")*;

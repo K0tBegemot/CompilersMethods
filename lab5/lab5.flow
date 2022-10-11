@@ -17,7 +17,7 @@ main(){
 
     result : Maybe<ExecutionContext> = createRPNExecutionContext();
     if(isSome(result)){
-        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0)), makeTree()));
+        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0, 0)), makeTree()));
         printExecutionContext(resultValue);
         retValue : Rational = calculateExpression(resultValue);
         printRational(retValue);
