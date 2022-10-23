@@ -1,0 +1,28 @@
+import runtime;
+import string;
+import ds/array;
+import ds/tree;
+import ds/tuples;
+import lingo/pegcode/driver;
+import Rational;
+import ASTTree;
+import RPN;
+import ExecutionContext;
+
+main(){
+    result : Maybe<ExecutionContext> = createExecutionContext("((2 * z) / z - 7) / (x + x / 2)" + " , _1 / _1 => 1 , _1 - _1 => 0 , _1 + 0 => _1 , _1 - 0 => _1, _1 / 1 => _1 , _1 * 1 => _1 , _1 * _2 + _3 * _2 => (_1 + _3) * _2 , _1 * _2 + _2 => (_1 + 1) * _2 , _1 + _2 * _1 => (1 + _2) * _1 , _1 + _1 => 2 * _1 , (_1 * _2) / _2 => _1 , 0 - _1 => -_1");
+    if(isSome(result)){
+        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
+        astTree : Expr = getExprFromEC(resultValue);
+        println(createStringFromAST(astTree));
+        astTree2 : Expr = while1(ExecutionContext(Some(astTree), resultValue.tree, resultValue.rules), 1);
+        printAST(astTree2);
+        astTree3 : Expr = createRationalFunction(astTree2);
+        printAST(astTree3);
+        astTree4 : Expr = while1(ExecutionContext(Some(astTree3), resultValue.tree, resultValue.rules), 1);
+        astTree5 : Expr = sugaredTree(astTree4);
+        printAST(astTree5);
+    }else{
+        println("@@@");
+    }
+}

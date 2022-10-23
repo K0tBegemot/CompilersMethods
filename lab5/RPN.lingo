@@ -1,8 +1,11 @@
-system = expr:value1 (executecontextcondition)*:value2 {CreateRPNExecutionContextLingo(:value1, :value2)};
-executecontextcondition = ("," ws variable:value1 "=" ws number:value2 ws){RPNECEntry(:value1, RPNIntToRational1(:value2))} | 
-                            ("," ws variable:value1 "=" ws number:value2 ws "/" ws number:value3 ws){RPNECEntry(:value1, RPNIntToRational2(:value2, :value3))};
+//system = expr:value1 (executecontextcondition)*:value2 (ecsimplificrules)*:value3{CreateRPNExecutionContextLingo(:value1, :value2, :value3)};
 expr = ws (number | variable | operation)+:array{CreateArray(:array)};
-number = (('0'-'9')+)$value1 ws{RPNInt(s2i($value1), 0)};
+// executecontextcondition = ("," ws variable:value1 "=" ws number:value2 ws "/" ws number:value3 ws){RPNECEntry(:value1, RPNIntToRational2(:value2, :value3))} | 
+//                             ("," ws variable:value1 "=" ws number:value2 ws){RPNECEntry(:value1, RPNIntToRational1(:value2))};
+// ecsimplificrules = ("," expr:value1 "=>" expr:value2){RPNECEntryRule(:value1, :value2)};
+//
+number =  int:value1 ws{RPNInt(:value1, 0)} | "_" int:value1 ws{RPNInt(:value1, 1)};
+int = (('0'-'9')+)$value1{s2i($value1)};
 variable = ("#" ('a'-'z' | 'A'-'Z')+)$value1 ws {RPNVariable($value1)};
 operation = "+" ws {RPNAdd()} | "-" ws {RPNSub()} | "*" ws {RPNMul()} | "/" ws {RPNDiv()} | "~" ws {RPNRecAdd()};
 ws = (" " | "\n")*;

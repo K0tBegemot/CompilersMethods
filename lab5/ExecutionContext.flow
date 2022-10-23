@@ -5,38 +5,43 @@ import ds/tree;
 import ds/tuples;
 import RationalStruct;
 import lingo/pegcode/driver;
+import ds/set;
 
 export{
-    ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);//, rules : Pair<Expr, Expr>
+    ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>, rules : [Pair<Expr, Expr>]);
 
-    // RPNECAdditionExpr ::= RPNECEntry, RPNECEntryRule;
-    // ECAdditionExpr ::= ECEntry, ECEntryRule;
+    RPNECAdditionExpr ::= RPNECEntry, RPNECEntryRule;
+    ECAdditionExpr ::= ECEntry, ECEntryRule;
 
     RPNECEntry : (var : RPNVariable, value : Rational);
-    // RPNECEntryRule : (expr1 : RPNExpr, expr2 : RPNExpr);
+    RPNECEntryRule : (expr1 : [RPNExpr], expr2 : [RPNExpr]);
     ECEntry : (var : Variable, value : Rational);
-    // ECEntryRule : (expr1 : Expr, expr2 : Expr);
+    ECEntryRule : (expr1 : Expr, expr2 : Expr);
 
     RPNGrammarOp : ref Maybe<[PegOp]>;
     GrammarOp : ref Maybe<[PegOp]>;
 
     createRPNExecutionContext() -> Maybe<ExecutionContext>;
-    createExecutionContext() -> Maybe<ExecutionContext>;
+    createExecutionContext(str : string) -> Maybe<ExecutionContext>;
     getExprFromEC(context : ExecutionContext) -> Expr;
     printExecutionContext(context : ExecutionContext) -> void;
     printVarTree(tree : Tree<Variable, Rational>) -> void;
+
+    verifyEC(context : ExecutionContext) -> int;
+    CreateArray(array : [flow]) -> [RPNExpr];
+    CreateRPNExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>;
+    RPNIntToRational1(array : [flow]) -> Rational;
+    RPNIntToRational2(array : [flow]) -> Rational;
+    createRPNGrammar() -> [PegOp];
 }
 
 
-ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>);//, rules : Pair<Expr, Expr>
-
-// RPNECAdditionExpr ::= RPNECEntry, RPNECEntryRule;
-// ECAdditionExpr ::= ECEntry, ECEntryRule;
+ExecutionContext : (expr : Maybe<Expr>, tree : Tree<Variable, Rational>, rules : [Pair<Expr, Expr>]);
 
 RPNECEntry : (var : RPNVariable, value : Rational);
-// RPNECEntryRule : (expr1 : RPNExpr, expr2 : RPNExpr);
+RPNECEntryRule : (expr1 : [RPNExpr], expr2 : [RPNExpr]);
 ECEntry : (var : Variable, value : Rational);
-// ECEntryRule : (expr1 : Expr, expr2 : Expr);
+ECEntryRule : (expr1 : Expr, expr2 : Expr);
 
 /////
 getExprFromEC(context : ExecutionContext) -> Expr{
@@ -84,13 +89,13 @@ initialiseDefaultExecutionTreeNodes(context : ExecutionContext) -> Maybe<Executi
     if(isSome(context.expr)){
         newTree = ref context.tree;
         searchVariablesRec(either(context.expr, Int(0, 0)), newTree);
-        Some(ExecutionContext(context.expr, ^newTree));
+        Some(ExecutionContext(context.expr, ^newTree, context.rules));
     }else{
         None();
     }
 }
 
-createListOfVariables(expr : Expr, array : ref [Variable]) -> void{
+createListOfVariables(expr : Expr, array : ref Set<Variable>) -> void{
     switch(expr){
         Add(e1, e2) : {
             createListOfVariables(e1, array);
@@ -116,18 +121,20 @@ createListOfVariables(expr : Expr, array : ref [Variable]) -> void{
             createListOfVariables(e1, array);
         }
         Variable(e1) : {
-            refArrayPush(array, Variable(e1));
+            newSet : Set<Variable> = insertSet(^array, Variable(e1));
+            array := newSet;
         }
     }
 }
 
 verifyEC(context : ExecutionContext) -> int{
     if(isSome(context.expr)){
-        arrayOfVariablesInASTTree : ref [Variable] = ref[];
+        exprVarSet : ref Set<Variable> = ref makeSet();
         expr : Expr = either(context.expr, Int(0, 0));
-        createListOfVariables(expr, arrayOfVariablesInASTTree);
-        arrayOfVariablesInEC : [Variable] = getTreeKeys(context.tree);
-        if(^arrayOfVariablesInASTTree == arrayOfVariablesInEC){
+        createListOfVariables(expr, exprVarSet);
+        treeVarArray : [Variable] = getTreeKeys(context.tree);
+        treeVarSet : Set<Variable> = buildSet(treeVarArray);
+        if(equalSet(^exprVarSet, treeVarSet) || isEmptySet(differenceSets(mergeSets(^exprVarSet, treeVarSet), treeVarSet))){
             1;
         }else{
             0;
@@ -169,6 +176,7 @@ printNodeRec(array : [Variable], index : int, tree : Tree<Variable, Rational>) -
         ratM : Maybe<Rational> = lookupTree(tree, array[index]);
         number : Rational = either(ratM, Rational(0, 0));
         println(text + i2s(number.numerator) + "/" + i2s(number.denominator));
+        printNodeRec(array, index + 1, tree);
     }
 }
 
@@ -177,17 +185,58 @@ printVarTree(tree : Tree<Variable, Rational>) -> void{
     printNodeRec(array, 0, tree);
 }
 
+printSimpRuleArrayRec(rules : [Pair<Expr, Expr>], index : int) -> void{
+    if(index < length(rules)){
+    println("");
+    println(i2s(index));
+    println("");
+    printAST(rules[index].first);
+    println("=>");
+    printAST(rules[index].second);
+    printSimpRuleArrayRec(rules, index + 1);
+    }
+}
+
+printSimpRuleArray(rules : [Pair<Expr, Expr>]) -> void{
+    printSimpRuleArrayRec(rules, 0);
+}
+
 printExecutionContext(context : ExecutionContext) -> void{
     printAST(getExprFromEC(context));
     printVarTree(context.tree);
+    printSimpRuleArray(context.rules);
+}
+
+createRPNSimplificationRulesArrayRec(array : [RPNECEntryRule], index : int, retArray : ref [Pair<Expr, Expr>]) -> void{
+    if(index < length(array)){
+        rule : RPNECEntryRule = array[index];
+        //printRPNExprArray(rule.expr1);
+        //printRPNExprArray(rule.expr2);
+        expr1Maybe : Maybe<Expr> = createASTTreeFromRPNExprArray(rule.expr1);
+        expr2Maybe : Maybe<Expr> = createASTTreeFromRPNExprArray(rule.expr2);
+        if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+            expr1 : Expr = either(expr1Maybe, Int(0, 0));
+            expr2 : Expr = either(expr2Maybe, Int(0, 0));
+            if(isMoreParameterContext(expr1, expr2) == 1){
+                refArrayPush(retArray, Pair(expr1, expr2));
+            }
+        }
+        createRPNSimplificationRulesArrayRec(array, index + 1, retArray);
+    }
+}
+
+createRPNSimplificationRulesArray(array : [RPNECEntryRule]) -> [Pair<Expr, Expr>]{
+    retArray : ref [Pair<Expr, Expr>] = ref [];
+    createRPNSimplificationRulesArrayRec(array, 0, retArray);
+    ^retArray;
 }
 
 CreateRPNExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
-    context : ExecutionContext = ExecutionContext(createASTTreeFromRPNExprArray(array[0]), createRPNExecutionTree(array[1]));
+    context : ExecutionContext = ExecutionContext(createASTTreeFromRPNExprArray(array[0]), createRPNExecutionTree(array[1]), createRPNSimplificationRulesArray(array[2]));
     newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
     if(isSome(newContext))
     {
-        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree()));
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
         if(verifyEC(newContextValue) == 1){
             Some(newContextValue);
         }else{
@@ -220,11 +269,14 @@ createRPNExecutionContext() -> Maybe<ExecutionContext>{
         t4 = setTree(t3, "RPNIntToRational2", RPNIntToRational2);
         SemanticActions(t4);
     }
-    result : Maybe<ExecutionContext> = parsic(createRPNGrammar(), "10 10 / #Var 2 / / , #Var = 10", specialPegActions);
+    // 10 1 #Var / / , #Var = 10
+    result : Maybe<ExecutionContext> = parsic(createRPNGrammar(), "#x #y / #y #z / / , #x = 10 , #y = 2, #z = 3, _1 _2 / _3 _4 / / => _1 _4 * _2 _3 * /", specialPegActions);
     result;
 }
 
 /////
+
+
 
 createExecutionTreeRec(array : [ECEntry], index : int, tree : ref Tree<Variable, Rational>) -> void{
     if(index < length(array)){
@@ -241,14 +293,126 @@ createExecutionTree(array : [ECEntry]) -> Tree<Variable, Rational>{
     ^tree;
 }
 
+addParameterToContext(expr : Expr, parameterContext : ref Set<int>) -> void{
+    switch(expr){
+        Add(e1, e2) : {
+            addParameterToContext(e1, parameterContext);
+            addParameterToContext(e2, parameterContext);
+        }
+        Sub(e1, e2) : {
+            addParameterToContext(e1, parameterContext);
+            addParameterToContext(e2, parameterContext);
+        }
+        Mul(e1, e2) : {
+            addParameterToContext(e1, parameterContext);
+            addParameterToContext(e2, parameterContext);
+        }
+        Div(e1, e2) : {
+            addParameterToContext(e1, parameterContext);
+            addParameterToContext(e2, parameterContext);
+        }
+        Int(e1, isParam) : {
+            if(isParam == 1){
+                newSet : Set<int> = insertSet(^parameterContext, e1);
+                parameterContext := newSet;
+            }
+        }
+        Parentheses(e1) : {
+            addParameterToContext(e1, parameterContext);
+        }
+        ReciprocalAdd(e1) : {
+            addParameterToContext(e1, parameterContext);
+        }
+        Variable(e1) : {}
+    }
+}
+
+arrayIteration(array : ref [int], index : int, parameterSet : ref Set<int>) -> int{
+    if(index < length(^array)){
+        parameterNumber : int = ^array[index];
+        if(containsSet(^parameterSet, parameterNumber)){
+            if(arrayIteration(array, index + 1, parameterSet) == 1){
+                1;
+            }else{
+                0;
+            }
+        }else{
+            0;
+        }
+    }else{
+        1;
+    }
+}
+
+isMoreParameterContext(expr1 : Expr, expr2 : Expr) -> int{
+    parameter1Context : ref Set<int> = ref makeSet();
+    addParameterToContext(expr1, parameter1Context);
+    parameter2Context : ref Set<int> = ref makeSet();
+    addParameterToContext(expr2, parameter2Context);
+    parameter2ContextArray : [int] = set2array(^parameter2Context);                   //1->2         /////////////////////////////////////
+    retValue : int = arrayIteration(ref parameter2ContextArray, 0, parameter1Context);
+    retValue;
+}
+
+createSimplificationRulesArrayRec(array : [ECEntryRule], index : int, retArray : ref [Pair<Expr, Expr>]) -> void{
+    if(index < length(array)){
+        rule : ECEntryRule = array[index];
+        expr1 : Expr = rule.expr1;
+        expr2 : Expr = rule.expr2;
+        if(isMoreParameterContext(expr1, expr2) == 1){
+            refArrayPush(retArray, Pair(expr1, expr2));
+        }
+        createSimplificationRulesArrayRec(array, index + 1, retArray);
+    }
+}
+
+createSimplificationRulesArray(array : [ECEntryRule]) -> [Pair<Expr, Expr>]{
+    retArray : ref [Pair<Expr, Expr>] = ref [];
+    createSimplificationRulesArrayRec(array, 0, retArray);
+    ^retArray;
+}
+
+isRightSetOfVariables(expr : Expr, treeVarArray : [Variable]) -> int{
+    exprVarSet : ref Set<Variable> = ref makeSet();
+    createListOfVariables(expr, exprVarSet);
+    treeVarSet : Set<Variable> = buildSet(treeVarArray);
+    if(equalSet(^exprVarSet, treeVarSet) || isEmptySet(differenceSets(mergeSets(^exprVarSet, treeVarSet), treeVarSet))){
+        1;
+    }else{
+        0;
+    }
+}
+
+verifySimplificationRulesRec(context : ExecutionContext, index : int, newRules : ref [Pair<Expr, Expr>]) -> void{
+    if(index < length(context.rules))
+    {
+        rule1 : Expr = context.rules[index].first;
+        rule2 : Expr = context.rules[index].second;
+        treeVarArray : [Variable] = getTreeKeys(context.tree);
+        if(isRightSetOfVariables(rule1, treeVarArray) == 1 && isRightSetOfVariables(rule2, treeVarArray) == 1){
+            refArrayPush(newRules, Pair(rule1, rule2));
+            verifySimplificationRulesRec(context, index + 1, newRules);
+        }else{
+            verifySimplificationRulesRec(context, index + 1, newRules);
+        }
+    }
+}
+
+verifySimplificationRules(context : ExecutionContext) -> ExecutionContext{
+    newRules : ref [Pair<Expr, Expr>] = ref [];
+    verifySimplificationRulesRec(context, 0, newRules);
+    ExecutionContext(context.expr, context.tree, ^newRules);
+}
+
 CreateExecutionContextLingo(array : [flow]) -> Maybe<ExecutionContext>{
-    context : ExecutionContext = ExecutionContext(Some(array[0]), createExecutionTree(array[1]));
+    context : ExecutionContext = ExecutionContext(Some(array[0]), createExecutionTree(array[1]), createSimplificationRulesArray(array[2]));
     newContext : Maybe<ExecutionContext> = initialiseDefaultExecutionTreeNodes(context);
     if(isSome(newContext))
     {
-        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree()));
-        if(verifyEC(newContextValue) == 1){
-            Some(newContextValue);
+        newContextValue : ExecutionContext = either(newContext, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
+        context2 : ExecutionContext = verifySimplificationRules(newContextValue);
+        if(verifyEC(context2) == 1){
+            Some(context2);
         }else{
             None();
         }
@@ -296,7 +460,7 @@ IntToRational2(array : [flow]) -> Rational{
     Rational(number1.e1, number2.e1);
 }
 
-createExecutionContext() -> Maybe<ExecutionContext>{
+createExecutionContext(str : string) -> Maybe<ExecutionContext>{
     specialPegActions = {
         t1 = setTree(defaultPegActions.t, "FOOp", FOOp);
         t2 = setTree(t1, "SOOp", SOOp);
@@ -305,6 +469,6 @@ createExecutionContext() -> Maybe<ExecutionContext>{
         t5 = setTree(t4, "CreateExecutionContextLingo", CreateExecutionContextLingo);
         SemanticActions(t5);
     }
-    result : Maybe<ExecutionContext> = parsic(createGrammar(), "10 - -#Var , #Var = 11", specialPegActions);
+    result : Maybe<ExecutionContext> = parsic(createGrammar(), str, specialPegActions);
     result;
 }

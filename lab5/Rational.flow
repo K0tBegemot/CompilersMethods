@@ -5,6 +5,7 @@ import string;
 import RationalStruct;
 import ExecutionContext;
 import dynamic;
+import ds/tree;
 
 export{
     addRational(rat1 : Rational, rat2 : Rational) -> Rational;
@@ -13,6 +14,9 @@ export{
     divRational(rat1 : Rational, rat2 : Rational) -> Rational;
     calculateExpression(context : ExecutionContext) -> Rational;
     printRational(value : Rational) -> void;
+    calculateRPNExpressionRec(array : [RPNExpr], tree : Tree<Variable, Rational>) -> Rational;
+    calculateFraction(ASTTree : Expr, var : Variable) -> Expr;
+    while1(context : ExecutionContext, isVerifyOff : int) -> Expr;
 }
 
 maxRat(pair : Pair) -> Pair{
@@ -72,7 +76,8 @@ subRational(rat1 : Rational, rat2 : Rational) -> Rational{
         rat1Right = rightRational(rat1);
         rat2Right = rightRational(rat2);
         gcb : int = euclidianGCDAlg(Pair(rat1Right.denominator, rat2Right.denominator));
-        lcd : int = absRat(rat1Right.denominator) * (absRat(rat1Right.denominator) / gcb);
+        lcd : int = absRat(rat1Right.denominator) * (absRat(rat2Right.denominator) / gcb);
+        //println("@@" + i2s(lcd));
         Rational(rat1Right.numerator * (lcd / rat1Right.denominator) - rat2Right.numerator * (lcd / rat2Right.denominator), lcd);
     }
 }
@@ -99,6 +104,116 @@ divRational(rat1 : Rational, rat2 : Rational) -> Rational{
 
 subaddRational(rat1 : Rational) -> Rational{
     Rational(rat1.numerator * -1, rat1.denominator);
+}
+
+for2(array : ref [RPNExpr], index : int, tree : Tree<Variable, Rational>, stack : Stack<Rational>, valid : int) -> int{
+    if(valid == 1){
+        if(index < length(^array))
+        {
+        validNext : ref int = ref 1;
+        expr : RPNExpr = ^array[index];
+        switch(expr){
+        RPNInt(i, isParam) : {
+            pushToStack(stack, Rational(i, 1));
+            validNext := 1;
+        }
+        RPNVariable(name) : {
+            varValueMaybe : Maybe<Rational> = lookupTree(tree, Variable(name));
+            if(isSome(varValueMaybe)){
+                varValue : Rational = either(varValueMaybe, Rational(0, 0));
+                pushToStack(stack, varValue);
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNAdd() : {
+            expr2Maybe : Maybe<Rational> = popFromStack(stack);
+            expr1Maybe : Maybe<Rational> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Rational = either(expr1Maybe, Rational(0, 0));
+                expr2: Rational = either(expr2Maybe, Rational(0, 0));
+                pushToStack(stack, addRational(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNSub() : {
+            expr2Maybe : Maybe<Rational> = popFromStack(stack);
+            expr1Maybe : Maybe<Rational> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Rational = either(expr1Maybe, Rational(0, 0));
+                expr2 : Rational = either(expr2Maybe, Rational(0, 0));
+                pushToStack(stack, subRational(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNMul() : {
+            expr2Maybe : Maybe<Rational> = popFromStack(stack);
+            expr1Maybe : Maybe<Rational> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Rational = either(expr1Maybe, Rational(0, 0));
+                expr2 : Rational = either(expr2Maybe, Rational(0, 0));
+                pushToStack(stack, mulRational(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNDiv() : {
+            expr2Maybe : Maybe<Rational> = popFromStack(stack);
+            expr1Maybe : Maybe<Rational> = popFromStack(stack);
+            if(isSome(expr1Maybe) && isSome(expr2Maybe)){
+                expr1 : Rational = either(expr1Maybe, Rational(0, 0));
+                expr2 : Rational = either(expr2Maybe, Rational(0, 0));
+                pushToStack(stack, divRational(expr1, expr2));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        RPNRecAdd() : {
+            expr1Maybe : Maybe<Rational> = popFromStack(stack);
+            if(isSome(expr1Maybe)){
+                expr1 : Rational = either(expr1Maybe, Rational(0, 0));
+                pushToStack(stack, mulRational(Rational(-1, 1), expr1));
+                validNext := 1;
+            }else{
+                validNext := 0;
+            }
+        }
+        }
+        // printRationalArray(^(stack.stack));
+        // println("!_!");
+        for2(array, index + 1, tree, stack, ^validNext);
+        }else{
+            1;
+        }
+    }else{
+        0;
+    }
+}
+
+calculateRPNExpressionRec(array : [RPNExpr], tree : Tree<Variable, Rational>) -> Rational{
+    stack : Stack<Rational> = StackStruct(ref [], ref 0);
+    valid : int = 1;
+    index : int = 0;
+    validRet : int = for2(ref array, index, tree, stack, valid);
+    if(validRet == valid){
+        retMaybe : Maybe<Rational> = popFromStack(stack);
+        if(isSome(retMaybe)){
+            ret : Rational = either(retMaybe, Rational(0,0));
+            ret;
+        }else{
+            println("This is bag situation in calculateRPNExpressionRec");
+            Rational(0, 0);
+        }
+    }else{
+        Rational(0, 0);
+    }
 }
 
 calculateExpressionRec(expr : Expr, tree : Tree<Variable, Rational>) -> Rational{
@@ -136,50 +251,50 @@ calculateExpressionRec(expr : Expr, tree : Tree<Variable, Rational>) -> Rational
     }
 }
 
-simplifyFractions(expr : Expr) -> Expr{
-    switch(expr){
-        Add(e1, e2) : {
-            Add(simplifyFractions(e1), simplifyFractions(e2));
-        };
-        Sub(e1, e2) : {
-            Sub(simplifyFractions(e1), simplifyFractions(e2));
-        };
-        Mul(e1, e2) : {
-            Mul(simplifyFractions(e1), simplifyFractions(e2));
-        };
-        Div(e1, e2) : {
-            if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0))) && isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
-                array1 : [Expr]= extractStructArguments(e1);
-                array2 : [Expr]= extractStructArguments(e2);
-                Div(Mul(array1[0],array2[1]), Mul(array1[1],array2[0]));
-            }else{
-                if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0)))){
-                    array1 : [Expr]= extractStructArguments(e1);
-                    Div(array1[0],Mul(array1[1], e2));
-                }else{
-                    if(isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
-                        array1 : [Expr]= extractStructArguments(e2);
-                        Div(Mul(e1,array1[1]),array1[0]);
-                    }else{
-                        Div(simplifyFractions(e1), simplifyFractions(e2));
-                    }
-                }
-            }
-        };
-        Int(e1, isParam) : {
-            Int(e1, isParam);
-        };
-        Parentheses(e1) : {
-            Parentheses(simplifyFractions(e1));
-        }
-        ReciprocalAdd(e1) : {
-            ReciprocalAdd(simplifyFractions(e1));
-        }
-        Variable(e1) : {
-            Variable(e1);
-        }
-    }
-}
+// simplifyFractions(expr : Expr) -> Expr{
+//     switch(expr){
+//         Add(e1, e2) : {
+//             Add(simplifyFractions(e1), simplifyFractions(e2));
+//         };
+//         Sub(e1, e2) : {
+//             Sub(simplifyFractions(e1), simplifyFractions(e2));
+//         };
+//         Mul(e1, e2) : {
+//             Mul(simplifyFractions(e1), simplifyFractions(e2));
+//         };
+//         Div(e1, e2) : {
+//             if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0))) && isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
+//                 array1 : [Expr]= extractStructArguments(e1);
+//                 array2 : [Expr]= extractStructArguments(e2);
+//                 Div(Mul(array1[0],array2[1]), Mul(array1[1],array2[0]));
+//             }else{
+//                 if(isSameStructType(e1, Div(Int(0, 0), Int(0, 0)))){
+//                     array1 : [Expr]= extractStructArguments(e1);
+//                     Div(array1[0],Mul(array1[1], e2));
+//                 }else{
+//                     if(isSameStructType(e2, Div(Int(0, 0), Int(0, 0)))){
+//                         array1 : [Expr]= extractStructArguments(e2);
+//                         Div(Mul(e1,array1[1]),array1[0]);
+//                     }else{
+//                         Div(simplifyFractions(e1), simplifyFractions(e2));
+//                     }
+//                 }
+//             }
+//         };
+//         Int(e1, isParam) : {
+//             Int(e1, isParam);
+//         };
+//         Parentheses(e1) : {
+//             Parentheses(simplifyFractions(e1));
+//         }
+//         ReciprocalAdd(e1) : {
+//             ReciprocalAdd(simplifyFractions(e1));
+//         }
+//         Variable(e1) : {
+//             Variable(e1);
+//         }
+//     }
+// }
 
 simplifyRational(number : Rational) -> Rational{
     gcd : int = euclidianGCDAlg(Pair(absRat(number.numerator), absRat(number.denominator)));
@@ -219,14 +334,413 @@ calculateFraction(ASTTree : Expr, var : Variable) -> Expr{
     }
 }
 
+for4(astE1 : Expr, astE2 : Expr, e1 : Expr, e2 : Expr, index : int, parameterContext : ref Tree<Int, Expr>, tempParameterContext : ref Tree<Int, Expr>) -> int{
+    if(index == 0){
+        if(fitPattern(astE1, e1, tempParameterContext, 0) == 1 && fitPattern(astE2, e2, tempParameterContext, 0) == 1){
+            parameterContext := ^tempParameterContext;
+            1;
+        }else{
+            tempParameterContext := ^parameterContext;
+            for4(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+        }
+    }else{
+        if(index == 1){
+            if(fitPattern(astE1, e1, tempParameterContext, 1) == 1 && fitPattern(astE2, e2, tempParameterContext, 0) == 1){
+                parameterContext := ^tempParameterContext;
+                1;
+            }else{
+                tempParameterContext := ^parameterContext;
+                for4(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+            } 
+        }else{
+            if(index == 2){
+                if(fitPattern(astE1, e1, tempParameterContext, 0) == 1 && fitPattern(astE2, e2, tempParameterContext, 1) == 1){
+                    parameterContext := ^tempParameterContext;
+                    1;
+                }else{
+                    tempParameterContext := ^parameterContext;
+                    for4(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+                } 
+            }else{
+                if(index == 3){
+                    if(fitPattern(astE1, e1, tempParameterContext, 1) == 1 && fitPattern(astE2, e2, tempParameterContext, 1) == 1){
+                        parameterContext := ^tempParameterContext;
+                        1;
+                    }else{
+                        tempParameterContext := ^parameterContext;
+                        for4(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+                    } 
+                }else{
+                    tempParameterContext := ^parameterContext;
+                    0;
+                }
+            }
+        }
+    }
+}
+
+for3(astE1 : Expr, astE2 : Expr, e1 : Expr, e2 : Expr , index : int, parameterContext : ref Tree<Int, Expr>, tempParameterContext : ref Tree<Int, Expr>) -> int{
+    if(index == 0){
+        if(for4(astE2, astE1, e1, e2, 0, parameterContext, tempParameterContext) == 1){ //astE1, astE2
+            1;
+        }else{
+            tempParameterContext := ^parameterContext;
+            for3(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+        }
+    }else{
+        if(index == 1){
+            if(for4(astE1, astE2, e1, e2, 0, parameterContext, tempParameterContext) == 1){ //astE2, astE1
+                1;
+            }else{
+                tempParameterContext := ^parameterContext;
+                for3(astE1, astE2, e1, e2, index + 1, parameterContext, tempParameterContext);
+            }
+        }else{
+            tempParameterContext := ^parameterContext;
+            0;
+        }
+    }
+}
+
+fitPattern(astTree : Expr, pattern : Expr, parameterContext : ref Tree<Int, Expr>, isFlipBit : int) -> int{
+    if(isSameStructType(astTree, pattern)){
+        switch(pattern){
+        Add(e1, e2) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            astE2 : Expr = paramArray[1];
+            tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            tempParameterContext := ^parameterContext;
+            if(for3(astE1, astE2, e1, e2, isFlipBit, parameterContext, tempParameterContext) == 1){
+                1;
+            }else{
+                0;
+            }
+
+        };
+        Sub(e1, e2) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            astE2 : Expr = paramArray[1];
+            tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            tempParameterContext := ^parameterContext;
+            if(for3(astE1, astE2, e1, e2, 1, parameterContext, tempParameterContext) == 1){ //0
+                1;
+            }else{
+                0;
+            }
+        };
+        Mul(e1, e2) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            astE2 : Expr = paramArray[1];
+            tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            tempParameterContext := ^parameterContext;
+            if(for3(astE1, astE2, e1, e2, isFlipBit, parameterContext, tempParameterContext) == 1){
+                1;
+            }else{
+                0;
+            }
+        };
+        Div(e1, e2) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            astE2 : Expr = paramArray[1];
+            tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            tempParameterContext := ^parameterContext;
+            if(for3(astE1, astE2, e1, e2, 1, parameterContext, tempParameterContext) == 1){ //0
+                1;
+            }else{
+                0;
+            }
+        };
+        Int(e1, isParam) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : int = paramArray[0];
+            astE2 : int = paramArray[1];
+            if(isParam == 1){
+                patternMaybe : Maybe<Expr> = lookupTree(^parameterContext, pattern);
+                if(isSome(patternMaybe)){
+                    anotherASTTree : Expr = either(patternMaybe, Int(0, 0));
+                    if(isSameStructType(anotherASTTree, astTree)){
+                        anotherParamArray : [flow] = extractStructArguments(anotherASTTree);
+                        newASTE1 : int = anotherParamArray[0];
+                        newASTE2 : int = anotherParamArray[1];
+                        if(astE1 == newASTE1){
+                            1;
+                        }else{
+                            0;
+                        }
+                    }else{
+                        0;
+                    }
+                }else{
+                    newTree : Tree<Int, Expr> = setTree(^parameterContext, pattern, astTree);
+                    parameterContext := newTree;
+                    1;
+                }
+            }else{
+                if(e1 == astE1){
+                    1;
+                }else{
+                    0;
+                }
+            }
+        };
+        Parentheses(e1) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            if(fitPattern(astE1, e1, parameterContext, isFlipBit) == 1){
+                1;
+            }else{
+                0;
+            }
+        }
+        ReciprocalAdd(e1) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : Expr = paramArray[0];
+            if(fitPattern(astE1, e1, parameterContext,isFlipBit) == 1){
+                1;
+            }else{
+                0;
+            }
+        }
+        Variable(e1) : {
+            paramArray : [flow] = extractStructArguments(astTree);
+            astE1 : string = paramArray[0];
+            if(e1 == astE1){
+                1;
+            }else{
+                0;
+            }
+        }
+        }
+    }else{
+        if(isSameStructType(pattern, Int(0, 0))){
+            arguments : [flow] = extractStructArguments(pattern);
+            value : int = arguments[0];
+            isParameter : int = arguments[1];
+            if(isParameter == 1){
+                patternMaybe : Maybe<Expr> = lookupTree(^parameterContext, pattern);
+                if(isSome(patternMaybe)){
+                    anotherASTTree : Expr = either(patternMaybe, Int(0, 0));
+                    if(isEqualASTTree(anotherASTTree, astTree) == 1){
+                        1;
+                    }else{
+                        0;
+                    }
+                }else{
+                    newTree : Tree<Int, Expr> = setTree(^parameterContext, Int(value, isParameter), astTree);
+                    parameterContext := newTree;
+                    1;
+                }
+            }else{
+                0;
+            }
+        }else{
+            //This content is deprecated since functional can not be rightfully implemented with current Expr structure state
+            //Need to add ParentExprReference to structure to give possibility discern the same Expr tree, but located in different part of
+            //start ASTTree. If ^ParentExprReference differ for such x then this is different x'es. If ^ParentExprReference is the same, 
+            //then we can differentiate which x Expr is right or left. So we can hand over depthCounterStack : [Pair<Expr, int>] to 
+            //fitPattern function to keep whether the growth tree operation was applied (in one of if below)
+
+            //Example of Problem:
+            //              ASTTree                 Pattern
+            //              /      \                /      \
+            //             100      100             Div     Div
+            //             ^         ^             /    \   /   \
+            //             |         |             P1   P2  P3  P4
+            //             |         |
+            //In this my naive realisation where is no possibility differentiate this two x Expr nodes in depthCounterStack
+
+            //Also we need use ref to Expr in ASTTree operations such as + - * / cause in flow we cannot create references 
+            //without copying obj after creating this obj.
+
+            // if(isSameStructType(pattern, Mul(Int(0,0), Int(0,0)))){
+            //     tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            //     tempParameterContext := ^parameterContext;
+            //     newExpr : Expr = Mul(Int(1, 0), astTree);
+            //     if(fitPattern(newExpr, pattern, tempParameterContext) == 1){
+            //         parameterContext := ^tempParameterContext;
+            //         1;
+            //     }else{
+            //         0;
+            //     }
+            // }else{
+            //     if(isSameStructType(pattern, Add(Int(0,0), Int(0, 0)))){
+            //         tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            //         tempParameterContext := ^parameterContext;
+            //         if(fitPattern(Add(Int(1, 0), astTree), pattern, tempParameterContext) == 1){
+            //             parameterContext := ^tempParameterContext;
+            //             1;
+            //         }else{
+            //             0;
+            //         }
+            //     }else{
+            //         if(isSameStructType(pattern, Div(Int(0,0), Int(0, 0)))){
+            //             tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            //             tempParameterContext := ^parameterContext;
+            //             if(fitPattern(Div(astTree, Int(1, 0)), pattern, tempParameterContext) == 1){
+            //                 parameterContext := ^tempParameterContext;
+            //                 1;
+            //             }else{
+            //                 0;
+            //             }
+            //         }else{
+            //             if(isSameStructType(pattern, Sub(Int(0,0), Int(0, 0)))){
+            //                 tempParameterContext : ref Tree<Int, Expr> = ref makeTree();
+            //                 tempParameterContext := ^parameterContext;
+            //                 if(fitPattern(Sub(astTree, Int(0, 0)), pattern, tempParameterContext) == 1){
+            //                     parameterContext := ^tempParameterContext;
+            //                     1;
+            //                 }else{
+            //                     0;
+            //                 }
+            //             }else{
+            //                 0;
+            //             }
+            //         }
+            //     }
+            // }
+            0;
+        }
+    }
+}
+
+createNewTree(pattern : Expr, parameterContext : ref Tree<Int, Expr>) -> Expr{
+    switch(pattern){
+        Add(e1, e2) : {
+            Add(createNewTree(e1, parameterContext), createNewTree(e2, parameterContext));
+        };
+        Sub(e1, e2) : {
+            Sub(createNewTree(e1, parameterContext), createNewTree(e2, parameterContext));
+        };
+        Mul(e1, e2) : {
+            Mul(createNewTree(e1, parameterContext), createNewTree(e2, parameterContext));
+        };
+        Div(e1, e2) : {
+            Div(createNewTree(e1, parameterContext), createNewTree(e2, parameterContext));
+        };
+        Int(e1, isParam) : {
+            if(isParam == 1){
+                templateExprMaybe : Maybe<Expr> = lookupTree(^parameterContext, Int(e1, isParam));
+                if(isSome(templateExprMaybe)){
+                    templateExpr : Expr = either(templateExprMaybe, Int(0, 0));
+                    templateExpr;
+                }else{
+                    println("Error in function createNewTree in Rational.flow . This shouldn't happen");
+                    Int(0, 0);
+                }
+            }else{
+                Int(e1, isParam);
+            }
+        };
+        Parentheses(e1) : {
+            createNewTree(e1, parameterContext);
+        }
+        ReciprocalAdd(e1) : {
+            Mul(Int(-1, 0), createNewTree(e1, parameterContext));
+        }
+        Variable(e1) : {
+            Variable(e1);
+        }
+    }
+}
+
+printParameterContextRec(intArray : ref [Int], index : int, parameterContext : ref Tree<Int, Expr>){
+    if(index < length(^intArray)){
+        printAST(^intArray[index]);
+        expr : Expr = either(lookupTree(^parameterContext, ^intArray[index]), Int(0, 0));
+        printAST(expr);
+        printParameterContextRec(intArray, index + 1, parameterContext);
+    }
+}
+
+printParameterContext(parameterContext : ref Tree<Int, Expr>) -> void{
+    intArray : [Int] = getTreeKeys(^parameterContext);
+    printParameterContextRec(ref intArray, 0, parameterContext);
+}
+
+cycleByTemplate(astTree : Expr, arrayOfTemplate : ref [Pair<Expr, Expr>], index : int, counter : ref int) -> Expr{
+    if(index < length(^arrayOfTemplate)){
+        pattern : Expr = desugaredTree(^arrayOfTemplate[index].first);
+        parameterContext : ref Tree<Int, Expr> = ref makeTree();
+        if(fitPattern(astTree, pattern, parameterContext, 0) == 1){
+            substitution : Expr = desugaredTree(^arrayOfTemplate[index].second);
+            counter := ^counter + 1;
+            createNewTree(substitution, parameterContext);
+        }else{
+            cycleByTemplate(astTree, arrayOfTemplate, index + 1, counter);
+        }
+    }else{
+        switch(astTree){
+        Add(e1, e2) : {
+            Add(cycleByTemplate(e1, arrayOfTemplate, 0, counter), cycleByTemplate(e2, arrayOfTemplate, 0, counter));
+        };
+        Sub(e1, e2) : {
+            Sub(cycleByTemplate(e1, arrayOfTemplate, 0, counter), cycleByTemplate(e2, arrayOfTemplate, 0, counter));
+        };
+        Mul(e1, e2) : {
+            Mul(cycleByTemplate(e1, arrayOfTemplate, 0, counter), cycleByTemplate(e2, arrayOfTemplate, 0, counter));
+        };
+        Div(e1, e2) : {
+            Div(cycleByTemplate(e1, arrayOfTemplate, 0, counter), cycleByTemplate(e2, arrayOfTemplate, 0, counter));
+        };
+        Int(e1, isParam) : {
+            Int(e1, isParam);
+        };
+        Parentheses(e1) : {
+            Parentheses(cycleByTemplate(e1, arrayOfTemplate, 0, counter));
+        }
+        ReciprocalAdd(e1) : {
+            ReciprocalAdd(cycleByTemplate(e1, arrayOfTemplate, 0, counter));
+        }
+        Variable(e2) : {
+            Variable(e2);
+        }
+        }
+    }
+}
+
+simplifyExprByTemplate(context : ExecutionContext, counter : ref int) -> Expr{
+    if(isSome(context.expr)){
+        astTree : Expr = desugaredTree(either(context.expr, Int(0,0)));
+        if(length(context.rules) > 0){
+            arrayOfTemplate : ref [Pair<Expr, Expr>] = ref context.rules;
+            newTree : Expr = cycleByTemplate(astTree, arrayOfTemplate, 0, counter);
+            newTree;
+        }else{
+            astTree;
+        }
+    }else{
+        Int(0, 0);
+    }
+}
+
+while1(context : ExecutionContext, isVerifyOFF : int) -> Expr{
+    counter : ref int = ref 0;
+    retExpr : Expr = simplifyExprByTemplate(context, counter);
+    println("---" + i2s(^counter));
+    if(^counter > 0){
+        newExecutionContext : ExecutionContext = ExecutionContext(Some(retExpr), context.tree, context.rules);
+        if(verifyEC(newExecutionContext) == 1 || isVerifyOFF == 1){
+            while1(newExecutionContext, isVerifyOFF);
+        }else{
+            either(context.expr, Int(0,0));
+        }
+    }else{
+        retExpr;
+    }
+}
+
 calculateExpression(context : ExecutionContext) -> Rational{
     astTree : Maybe<Expr> = context.expr;
     if(isSome(astTree)){
-        astTreeValue : Expr = either(astTree, Int(0, 0));
-        astTreeValue2 : Expr = simplifyFractions(astTreeValue);
-        //printAST(astTreeValue2);
-        //astTreeValue3 : Expr = calculateFraction(astTreeValue2, Variable("#Var"));
-        ret : Rational = rightRational(calculateExpressionRec(astTreeValue2, context.tree));
+        //astTreeValue2 : Expr = simplifyFractions(astTreeValue);
+        astTreeValue2 : Expr = while1(context, 0); //simplifyExprByTemplate(context);
+        printAST(astTreeValue2);
+        astTreeValue3 : Expr = calculateFraction(astTreeValue2, Variable("#x"));
+        ret : Rational = rightRational(calculateRPNExpressionRec(createRPNArrayFromASTTree(astTreeValue3), context.tree));
         ret2 : Rational = simplifyRational(ret);
         ret2;
     }else{
@@ -234,8 +748,24 @@ calculateExpression(context : ExecutionContext) -> Rational{
     }
 }
 
+printRationalArrayRec(array : [Rational], index : int){
+    if(index < length(array)){
+        printRational(array[index]);
+        printRationalArrayRec(array, index + 1);
+    }
+}
+
+printRationalArray(array : [Rational])-> void{
+    printRationalArrayRec(array, 0);
+}
+
 printRational(value : Rational) -> void{
-    println(i2s(value.numerator));
-    println("______________");
-    println(i2s(value.denominator));
+    if(value.denominator != 0)
+    {
+        println(i2s(value.numerator));
+        println("______________");
+        println(i2s(value.denominator));
+    }else{
+        println("Invalid rational number. Division by zero");
+    }
 }

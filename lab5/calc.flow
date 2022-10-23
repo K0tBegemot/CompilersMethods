@@ -1,0 +1,40 @@
+import runtime;
+import string;
+import ds/array;
+import ds/tree;
+import ds/tuples;
+import lingo/pegcode/driver;
+import Rational;
+import ASTTree;
+import RPN;
+import ExecutionContext;
+
+main(){
+    resultMaybe : Maybe<ExecutionContext> = createExecutionContext("2 * 3 - 4");
+    if(isSome(resultMaybe)){
+        result : ExecutionContext = either(resultMaybe, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
+        printExecutionContext(result);
+        ///
+        exprTreeMaybe : Maybe<Expr> = result.expr;
+        if(isSome(exprTreeMaybe)){
+            exprTree : Expr = either(exprTreeMaybe, Int(0,0));
+            rpnExprArray : [RPNExpr] = createRPNArrayFromASTTree(exprTree);
+            rpnString : string = stringRPNExprFromArray(rpnExprArray);
+            println(rpnString);
+            ///
+            specialPegActions = {
+                t1 = setTree(defaultPegActions.t, "CreateArray", CreateArray);
+                t2 = setTree(t1, "CreateRPNExecutionContextLingo", CreateRPNExecutionContextLingo);
+                t3 = setTree(t2, "RPNIntToRational1", RPNIntToRational1);
+                t4 = setTree(t3, "RPNIntToRational2", RPNIntToRational2);
+                SemanticActions(t4);
+            }
+            rpnArray : [RPNExpr] = parsic(createRPNGrammar(), rpnString, specialPegActions);
+            ///
+            retValue : Rational = calculateRPNExpressionRec(rpnArray, makeTree());
+            printRational(retValue);
+        }
+    }else{
+        println("@@@");
+    }
+}

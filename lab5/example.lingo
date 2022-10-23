@@ -1,6 +1,7 @@
-system = expr:value1 (executecontextcondition)*:value2 {CreateExecutionContextLingo(:value1, :value2)};
-executecontextcondition = ("," ws variable:value1 ws "=" ws int:value2 ws){ECEntry(:value1, IntToRational1(:value2))} | 
-                            ("," ws variable:value1 ws "=" ws int:value2 ws "/" ws int:value3 ws){ECEntry(:value1, IntToRational2(:value2, :value3))};
+system = expr:value1 (executecontextcondition)*:value2 (ecsimplificrules)*:value3{CreateExecutionContextLingo(:value1, :value2, :value3)};
+executecontextcondition = ("," ws variable:value1 ws "=" ws int:value2 "/" int:value3 ws){ECEntry(:value1, IntToRational2(:value2, :value3))} | 
+                            ("," ws variable:value1 ws "=" ws int:value2 ws){ECEntry(:value1, IntToRational1(:value2))};
+ecsimplificrules = ("," expr:value1 "=>" expr:value2){ECEntryRule(:value1, :value2)};
 expr = ws foexp;
 foexp = soexp:value1 (subAdd | subSub)*:value2 {FOOp(:value1, :value2)};
 subAdd = "+" ws soexp:value1{SubAdd(:value1)};
@@ -12,6 +13,7 @@ literal = int:value1 ws {:value1} | recadd int:value1 ws {ReciprocalAdd(:value1)
             variable:value1 ws {:value1} | recadd variable:value1 ws {ReciprocalAdd(:value1)} | 
             "(" expr:value1 ")" ws {Parentheses(:value1)} | recadd "(" expr:value1 ")" ws {ReciprocalAdd(Parentheses(:value1))};
 recadd = "-";
-int = (('0'-'9')+)$value1 {Int(s2i($value1), 0)};
-variable = ("#" ('a'-'z' | 'A'-'Z')+)$value1 {Variable($value1)};
+int = number:value1 {Int(:value1, 0)} | "_" number:value1{Int(:value1, 1)};
+number = (('0'-'9')+)$value1{s2i($value1)};
+variable = (('a'-'z' | 'A'-'Z')+)$value1 {Variable($value1)};
 ws = (" " | "\n")*;

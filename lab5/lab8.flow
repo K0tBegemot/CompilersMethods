@@ -1,0 +1,28 @@
+import runtime;
+import string;
+import ds/array;
+import ds/tree;
+import ds/tuples;
+import lingo/pegcode/driver;
+import Rational;
+import ASTTree;
+import RPN;
+import ExecutionContext;
+
+main(){
+    result : Maybe<ExecutionContext> = createExecutionContext("1/(#x*#x)" + " , 0 + _1 => _1 , _1 + 0 => _1 , 1 * _1 => _1 , _1 * 1 => _1 , _1 - 0 => _1 , _1 / 1 => _1 , _1 + _1 => 2 * _1 , 0 * _1 => 0 , _1 * 0 => 0");
+    if(isSome(result)){
+        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
+        astTree : Expr = getExprFromEC(resultValue);
+        println(createStringFromAST(astTree));
+        astTree2 : Expr = calculateFraction(astTree, Variable("#x"));
+        println(createStringFromAST(astTree2));
+        astTree3 : Expr = while1(ExecutionContext(Some(astTree2), resultValue.tree, resultValue.rules), 1);
+        println(createStringFromAST(astTree3));
+        astTree4 : Expr = sugaredTree(astTree3);
+        println(createStringFromAST(astTree4));
+        printAST(astTree4);
+    }else{
+        println("@@@");
+    }
+}

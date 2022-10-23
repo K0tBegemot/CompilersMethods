@@ -10,29 +10,17 @@ import RPN;
 import ExecutionContext;
 
 main(){
-    // printAST(result);
-    // text: string = createStringFromAST(result);
-    // println(text);
-    // printRational(calculateExpression(result));
-
-    result : Maybe<ExecutionContext> = createRPNExecutionContext();
+    result : Maybe<ExecutionContext> = createExecutionContext("#x * #x + #x + 2 - 3");
     if(isSome(result)){
-        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0, 0)), makeTree()));
+        resultValue : ExecutionContext = either(result, ExecutionContext(Some(Int(0, 0)), makeTree(), []));
         printExecutionContext(resultValue);
-        retValue : Rational = calculateExpression(resultValue);
-        printRational(retValue);
+        expr : Expr = getExprFromEC(resultValue);
+        expr2 : Expr = calculateFraction(expr, Variable("#x"));
+        str : string = createStringFromAST(expr2);
+        println(str);
+        //retValue : Rational = calculateExpression(resultValue);
+        //printRational(retValue);
     }else{
         println("@@@");
     }
-    // println(stringRPNExprFromArray(result));
-    // ASTTree : Maybe<Expr> = createASTTreeFromRPNExprArray(result);
-    // switch(ASTTree){
-    //     Some(expr) : {
-    //         printAST(expr);
-    //         rpnArray : [RPNExpr] = createRPNArrayFromASTTree(expr);
-    //         printRPNExprArray(rpnArray);
-    //         //printRational(calculateExpression(expr));
-    //     }
-    //     None() : {}
-    // }
 }

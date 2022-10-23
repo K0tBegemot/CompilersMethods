@@ -17,6 +17,10 @@ export{
     createStringFromAST(ASTTree : Expr) -> string;
     createRPNArrayFromASTTree(ASTTree : Expr) -> [RPNExpr];
     createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>;
+    isEqualASTTree(astTree : Expr, newASTTree : Expr) -> int;
+    desugaredTree(tree : Expr) -> Expr;
+    sugaredTree(tree : Expr) -> Expr;
+    createRationalFunction(tree : Expr) -> Expr;
 }
 
 //For string parsing and ASTTree
@@ -55,7 +59,7 @@ printASTRecursive(ASTTree : Expr) -> string{
         Int(e1, e2) : {
             if(e2 == 1)
             {
-                text + "Parameter[]";
+                text + "Parameter[ " + i2s(e1) + " ]";
             }else{
                 text + "Int[ " + i2s(e1) + " ]";
             }
@@ -252,5 +256,313 @@ createASTTreeFromRPNExprArray(array : [RPNExpr]) -> Maybe<Expr>{
         popFromStack(stack);
     }else{
         None();
+    }
+}
+
+isEqualASTTree(astTree : Expr, newASTTree : Expr) -> int{
+    if(isSameStructType(astTree, newASTTree)){
+    switch(astTree){
+        Add(e1, e2) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            E2 : Expr = arguments[1];
+            if((isEqualASTTree(e1, E1) == 1 && isEqualASTTree(e2, E2) == 1) || (isEqualASTTree(e1, E2) == 1 && isEqualASTTree(e2, E1) == 1)){
+                1;
+            }else{
+                0;
+            }
+        }
+        Sub(e1, e2) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            E2 : Expr = arguments[1];
+            if((isEqualASTTree(e1, E1) == 1 && isEqualASTTree(e2, E2) == 1)){
+                1;
+            }else{
+                0;
+            }
+        }
+        Mul(e1, e2) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            E2 : Expr = arguments[1];
+            if((isEqualASTTree(e1, E1) == 1 && isEqualASTTree(e2, E2) == 1) || (isEqualASTTree(e1, E2) == 1 && isEqualASTTree(e2, E1) == 1)){
+                1;
+            }else{
+                0;
+            }
+        }
+        Div(e1, e2) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            E2 : Expr = arguments[1];
+            if((isEqualASTTree(e1, E1) == 1 && isEqualASTTree(e2, E2) == 1)){
+                1;
+            }else{
+                0;
+            }
+        }
+        Int(e1, e2) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : int = arguments[0];
+            E2 : int = arguments[1];
+            if(e1 == E1){
+                1;
+            }else{
+                0;
+            }
+        }
+        Parentheses(e1) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            if(isEqualASTTree(e1, E1) == 1){
+                1;
+            }else{
+                0;
+            }
+        }
+        ReciprocalAdd(e1) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : Expr = arguments[0];
+            if(isEqualASTTree(e1, E1) == 1){
+                1;
+            }else{
+                0;
+            }
+        }
+        Variable(e1) : {
+            arguments : [flow] = extractStructArguments(newASTTree);
+            E1 : string = arguments[0];
+            if(e1 == E1){
+                1;
+            }else{
+                0;
+            }
+        }
+        }
+    }else{
+        0;
+    }
+}
+
+desugaredTree(tree : Expr) -> Expr{
+    switch(tree){
+        Add(e1, e2) : {
+            Add(desugaredTree(e1), desugaredTree(e2));
+        }
+        Sub(e1, e2) : {
+            Sub(desugaredTree(e1), desugaredTree(e2));
+        }
+        Mul(e1, e2) : {
+            Mul(desugaredTree(e1), desugaredTree(e2));
+        }
+        Div(e1, e2) : {
+            Div(desugaredTree(e1), desugaredTree(e2));
+        }
+        Int(e1, e2) : {
+            Int(e1, e2);
+        }
+        Parentheses(e1) : {
+            desugaredTree(e1);
+        }
+        ReciprocalAdd(e1) : {
+            Mul(Int(-1, 0), desugaredTree(e1));
+        }
+        Variable(e1) : {
+            Variable(e1);
+        }
+    }
+}
+
+sugaredTree(tree : Expr) -> Expr{
+    switch(tree){
+        Add(e1, e2) : {
+            Add(sugaredTree(e1), sugaredTree(e2));
+        }
+        Sub(e1, e2) : {
+            if(isSameStructType(e1, Int(0,0))){
+                paramArray : [flow] = extractStructArguments(e1);
+                value : int = paramArray[0];
+                isParam : int = paramArray[1];
+                if(value == 0){
+                    ReciprocalAdd(sugaredTree(e2));
+                }else{
+                    Sub(sugaredTree(e1), sugaredTree(e2));
+                }
+            }else{
+                Sub(sugaredTree(e1), sugaredTree(e2));
+            }
+        }
+        Mul(e1, e2) : {
+            Mul(sugaredTree(e1), sugaredTree(e2));
+        }
+        Div(e1, e2) : {
+            Div(sugaredTree(e1), sugaredTree(e2));
+        }
+        Int(e1, e2) : {
+            Int(e1, e2);
+        }
+        Parentheses(e1) : {
+            sugaredTree(e1);
+        }
+        ReciprocalAdd(e1) : {
+            ReciprocalAdd(sugaredTree(e1));
+        }
+        Variable(e1) : {
+            Variable(e1);
+        }
+    }
+}
+
+createRationalFunction(tree : Expr) -> Expr{
+    switch(tree){
+        Add(e1, e2) : {
+            e1New : Expr = createRationalFunction(e1);
+            e2New : Expr = createRationalFunction(e2);
+            if((!isSameStructType(e1New, Div(Int(0,0), Int(0,0)))) && (!isSameStructType(e2New, Div(Int(0, 0), Int(0, 0))))){
+                Add(e1New, e2New);
+            }else{
+                if(isSameStructType(e1New, Div(Int(0,0), Int(0,0))) && isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                    par : [flow] = extractStructArguments(e1New);
+                    e11 : Expr = par[0];
+                    e12 : Expr = par[1];
+                    par2 : [flow] = extractStructArguments(e2New);
+                    e21 : Expr = par2[0];
+                    e22 : Expr = par2[1];
+                    Div(Add(Mul(e11, e22), Mul(e21, e12)), Mul(e12, e22));
+                }else{
+                    if(isSameStructType(e1New, Div(Int(0,0), Int(0,0)))){
+                        par : [flow] = extractStructArguments(e1New);
+                        e11 : Expr = par[0];
+                        e12 : Expr = par[1];
+                        Div(Add(e11, Mul(e2New, e12)), e12);
+                    }else{
+                        if(isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                            par : [flow] = extractStructArguments(e2New);
+                            e11 : Expr = par[0];
+                            e12 : Expr = par[1];
+                            Div(Add(Mul(e1New, e12), e11), e12);
+                        }else{
+                            println("This is bag");
+                            Int(0, 0);
+                        }
+                    }
+                }
+            }
+        }
+        Sub(e1, e2) : {
+            e1New : Expr = createRationalFunction(e1);
+            e2New : Expr = createRationalFunction(e2);
+            if((!isSameStructType(e1New, Div(Int(0,0), Int(0,0)))) && (!isSameStructType(e2New, Div(Int(0, 0), Int(0, 0))))){
+                Sub(e1New, e2New);
+            }else{
+                if(isSameStructType(e1New, Div(Int(0,0), Int(0,0))) && isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                    par : [flow] = extractStructArguments(e1New);
+                    e11 : Expr = par[0];
+                    e12 : Expr = par[1];
+                    par2 : [flow] = extractStructArguments(e2New);
+                    e21 : Expr = par2[0];
+                    e22 : Expr = par2[1];
+                    Div(Sub(Mul(e11, e22), Mul(e21, e12)), Mul(e12, e22));
+                }else{
+                    if(isSameStructType(e1New, Div(Int(0,0), Int(0,0)))){
+                        par : [flow] = extractStructArguments(e1New);
+                        e11 : Expr = par[0];
+                        e12 : Expr = par[1];
+                        Div(Sub(e11, Mul(e2New, e12)), e12);
+                    }else{
+                        if(isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                            par : [flow] = extractStructArguments(e2New);
+                            e11 : Expr = par[0];
+                            e12 : Expr = par[1];
+                            Div(Sub(Mul(e1New, e12), e11), e12);
+                        }else{
+                            println("This is bag");
+                            Int(0, 0);
+                        }
+                    }
+                }
+            }
+        }
+        Mul(e1, e2) : {
+            e1New : Expr = createRationalFunction(e1);
+            e2New : Expr = createRationalFunction(e2);
+            if((!isSameStructType(e1New, Div(Int(0,0), Int(0,0)))) && (!isSameStructType(e2New, Div(Int(0, 0), Int(0, 0))))){
+                Mul(e1New, e2New);
+            }else{
+                if(isSameStructType(e1New, Div(Int(0,0), Int(0,0))) && isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                    par : [flow] = extractStructArguments(e1New);
+                    e11 : Expr = par[0];
+                    e12 : Expr = par[1];
+                    par2 : [flow] = extractStructArguments(e2New);
+                    e21 : Expr = par2[0];
+                    e22 : Expr = par2[1];
+                    Div(Mul(e11, e21), Mul(e12, e22));
+                }else{
+                    if(isSameStructType(e1New, Div(Int(0,0), Int(0,0)))){
+                        par : [flow] = extractStructArguments(e1New);
+                        e11 : Expr = par[0];
+                        e12 : Expr = par[1];
+                        Div(Mul(e11, e2New), e12);
+                    }else{
+                        if(isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                            par : [flow] = extractStructArguments(e2New);
+                            e11 : Expr = par[0];
+                            e12 : Expr = par[1];
+                            Div(Mul(e1New, e11), e12);
+                        }else{
+                            println("This is bag");
+                            Int(0, 0);
+                        }
+                    }
+                }
+            }
+        }
+        Div(e1, e2) : {
+            e1New : Expr = createRationalFunction(e1);
+            e2New : Expr = createRationalFunction(e2);
+            if((!isSameStructType(e1New, Div(Int(0,0), Int(0,0)))) && (!isSameStructType(e2New, Div(Int(0, 0), Int(0, 0))))){
+                Div(e1New, e2New);
+            }else{
+                if(isSameStructType(e1New, Div(Int(0,0), Int(0,0))) && isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                    par : [flow] = extractStructArguments(e1New);
+                    e11 : Expr = par[0];
+                    e12 : Expr = par[1];
+                    par2 : [flow] = extractStructArguments(e2New);
+                    e21 : Expr = par2[0];
+                    e22 : Expr = par2[1];
+                    Div(Mul(e11, e22), Mul(e12, e21));
+                }else{
+                    if(isSameStructType(e1New, Div(Int(0,0), Int(0,0)))){
+                        par : [flow] = extractStructArguments(e1New);
+                        e11 : Expr = par[0];
+                        e12 : Expr = par[1];
+                        Div(e11, Mul(e12, e2New));
+                    }else{
+                        if(isSameStructType(e2New, Div(Int(0,0), Int(0,0)))){
+                            par : [flow] = extractStructArguments(e2New);
+                            e11 : Expr = par[0];
+                            e12 : Expr = par[1];
+                            Div(Mul(e1New, e12), e11);
+                        }else{
+                            println("This is bag");
+                            Int(0, 0);
+                        }
+                    }
+                }
+            }
+        }
+        Int(e1, e2) : {
+            Int(e1, e2);
+        }
+        Parentheses(e1) : {
+            createRationalFunction(e1);
+        }
+        ReciprocalAdd(e1) : {
+            Mul(Int(-1, 0), createRationalFunction(e1));
+        }
+        Variable(e1) : {
+            Variable(e1);
+        }
     }
 }
